@@ -25,13 +25,13 @@ data SymbolState = SymbolState
 	, _pc :: !Word -- ^ program counter (not line number)
 	} deriving (Show)
 
+makeLenses ''SymbolState
+
 def :: SymbolState
 def = SymbolState
 	{ _symbolTable = M.empty
 	, _pc = 0
 	}
-
-makeLenses ''SymbolState
 
 sc :: Parser()
 sc = L.space space1 lineCmnt blockCmnt
