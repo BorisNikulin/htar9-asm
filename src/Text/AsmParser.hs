@@ -38,44 +38,51 @@ pReg = (symbol "r" <?> "register") *> (pRegNum <|> pRegA)
 			symbol "a"
 			return $ Reg 0
 
-pImm :: Parser Imm
-pImm = uImm <|> sImm <?> "immediate"
+pRegImm :: Parser RegImm
+pRegImm = (Register <$> pReg) <|> pUImm <?> "register or unsigned immediate"
 	where
-		uImm = do
+		pUImm = do
 			imm <- integer
 			if imm >= 0 && imm <= 55
-				then return $ UImm imm
-				else fail $ "Unsigned imm needs to be between 0 and 55"
-		sImm = do
-			-- TODO how to not parse spaces after a sign (lookAhead digitChar?) (empty seemed to not work)
-			imm <- L.signed sc integer
-			if imm >= -31 && imm <= 32
-				then return $ SImm imm
-				--TODO? + becomes a unisgned instead of a positive signed imm? (make parser error?)
-				else fail $ "Unsigned imm nedds to be between -31 and +32"
+				then return $ Imm imm
+				else fail "unsigned imm needs to be between 0 and 55"
 
 pIdent :: Parser Ident
 pIdent = lexeme $ (:) <$> letterChar <*> many alphaNumChar
 
+pJump :: Parser Jump
+pJump = pJumpOffset <|> (JumpLabel <$> pIdent) <?> "label or signed immediate"
+	where
+		pJumpOffset = do
+			-- TODO how to not parse spaces after a sign (lookAhead digitChar?) (empty seemed to not work)
+			imm <- L.signed sc integer
+			if imm >= -31 && imm <= 32
+				then return $ JumpOffset imm
+				--TODO? + becomes a unisgned instead of a positive signed imm? (make parser error?)
+				else fail $ "unsigned imm nedds to be between -31 and +32"
+
+-- label doesnt seem to print
 pInst :: Parser Inst
-pInst = asum [pMv, pAdd, pSub, pAnd, pBch, pShift, pStr, pLd] <?> "assembly instruction"
+pInst = asum [pMv, pStr, pLd, pFin, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBcu] <?> "assembly instruction"
 	where
 		ts = try . symbol
 		pMv  = ts "mv"  >> Mv  <$> pReg
-		pAdd = ts "add" >> Add <$> pReg
-		pSub = ts "sub" >> Sub <$> pReg
-		pAnd = ts "and" >> And <$> pReg
-		pBch = ts "bch" >> (pBchOffset <|> pBchLabel)
-			where
-				pBchLabel = BchLabel <$> pIdent
-				pBchOffset = BchOffset <$> pImm
-		pShift = ts "shft" >> Shift <$> pImm
 		pStr = ts "str" >> Str <$> pReg
 		pLd  = ts "ld"  >> Ld  <$> pReg
+		pFin = ts "fin" >> return Fin
+		pAdd = ts "add" >> Add <$> pRegImm
+		pSub = ts "sub" >> Sub <$> pRegImm
+		pAnd = ts "and" >> And <$> pRegImm
+		pLshft = ts "lshft" >> Lshft <$> pRegImm
+		pRshft = ts "rshft" >> Rshft <$> pRegImm
+		pBcs = ts "bcs" >> Bcs <$> pJump
+		pBcu = ts "bcu" >> Bcu <$> pJump
 
 pStatement :: Parser Statement
-pStatement = (Inst <$> pInst) <|> (Data.Asm.Label <$> (pIdent <* symbol ":"))
+pStatement = StatementInst <$> pInst
+	-- figure out a place for label and so that it works
+	<|> Data.Asm.Label <$> pIdent <* (symbol ":")
 
 pStatements :: Parser [Statement]
-pStatements = sc >> concat <$> ((some pStatement) `sepEndBy` (some $ symbol ";"))
+pStatements = sc *> (concat <$> sepEndBy (some pStatement) (some $ symbol ";")) <* eof
 
