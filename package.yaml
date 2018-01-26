@@ -1,0 +1,49 @@
+name:                hatr9-asm
+version:             0.1.0.0
+github:              "BorisNikulin/hatr9-asm"
+license:             MIT
+author:              "Boris Nikulin"
+maintainer:          "NikulinBE@gmail.com"
+copyright:           "2018 Boris Nikulin"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on Github at <https://github.com/BorisNikulin/hatr9-asm#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- megaparsec >= 6 && < 7
+- void
+
+library:
+  source-dirs: src
+
+executables:
+  hatr9-asm-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hatr9-asm
+
+tests:
+  hatr9-asm-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hatr9-asm
