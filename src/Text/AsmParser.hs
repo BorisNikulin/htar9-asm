@@ -1,15 +1,37 @@
+{-# Language TemplateHaskell  #-}
+
 module Text.AsmParser where
 
 import Data.Asm
 
 import Data.Void
 import Data.Foldable (asum)
+import qualified Data.Map.Strict as M
+import Lens.Micro.Platform
 import Control.Applicative
-import Text.Megaparsec
+import Control.Monad.State.Strict
+import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-type Parser = Parsec Void String
+{-type Parser = Parsec Void String-}
+-- ghci: flip runState def $ runParserT pStatements "" "code"
+{-type Parser = ParsecT Void String (State SymbolState)-}
+-- ghci: runParser (runStateT pStatements def) "" "code"
+type Parser = StateT SymbolState (Parsec Void String)
+
+data SymbolState = SymbolState
+	{ _symbolTable :: M.Map String Word
+	, _pc :: !Word -- ^ program counter (not line number)
+	} deriving (Show)
+
+def :: SymbolState
+def = SymbolState
+	{ _symbolTable = M.empty
+	, _pc = 0
+	}
+
+makeLenses ''SymbolState
 
 sc :: Parser()
 sc = L.space space1 lineCmnt blockCmnt
@@ -63,7 +85,10 @@ pJump = pJumpOffset <|> (JumpLabel <$> pIdent) <?> "label or signed immediate"
 
 -- label doesnt seem to print
 pInst :: Parser Inst
-pInst = asum [pMv, pStr, pLd, pFin, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBcu] <?> "assembly instruction"
+pInst = do
+	inst <- asum [pMv, pStr, pLd, pFin, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBcu] <?> "assembly instruction"
+	pc += 1
+	return inst
 	where
 		ts = try . symbol
 		pMv  = ts "mv"  >> Mv  <$> pReg
@@ -81,7 +106,16 @@ pInst = asum [pMv, pStr, pLd, pFin, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBcu
 pStatement :: Parser Statement
 pStatement = StatementInst <$> pInst
 	-- figure out a place for label and so that it works
-	<|> Data.Asm.Label <$> pIdent <* (symbol ":")
+	<|> pLabel
+	where
+		pLabel = do
+			ident <- pIdent
+			symbol ":"
+			ss <- get
+			if ident `M.member` (ss^.symbolTable)
+				then fail "duplicate label"
+				else symbolTable .= M.insert ident (ss^.pc) (ss^.symbolTable)
+			return $ Data.Asm.Label ident
 
 pStatements :: Parser [Statement]
 pStatements = sc *> (concat <$> sepEndBy (some pStatement) (some $ symbol ";")) <* eof

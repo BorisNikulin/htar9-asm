@@ -21,6 +21,9 @@ description:         Please see the README on Github at <https://github.com/Bori
 dependencies:
 - base >= 4.7 && < 5
 - megaparsec >= 6 && < 7
+- mtl >= 2 && < 3
+- containers < 1
+- microlens-platform < 1
 - void
 
 library:
