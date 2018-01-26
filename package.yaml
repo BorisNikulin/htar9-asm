@@ -1,6 +1,6 @@
-name:                hatr9-asm
+name:                htar9-asm
 version:             0.1.0.0
-github:              "BorisNikulin/hatr9-asm"
+github:              "BorisNikulin/htar9-asm"
 license:             MIT
 author:              "Boris Nikulin"
 maintainer:          "NikulinBE@gmail.com"
@@ -16,7 +16,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on Github at <https://github.com/BorisNikulin/hatr9-asm#readme>
+description:         Please see the README on Github at <https://github.com/BorisNikulin/htar9-asm#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -27,7 +27,7 @@ library:
   source-dirs: src
 
 executables:
-  hatr9-asm-exe:
+  htar9-asm-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -35,10 +35,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - hatr9-asm
+    - htar9-asm
 
 tests:
-  hatr9-asm-test:
+  htar9-asm-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -46,4 +46,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - hatr9-asm
+    - htar9-asm
