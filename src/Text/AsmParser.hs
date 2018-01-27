@@ -1,6 +1,9 @@
 {-# Language TemplateHaskell  #-}
 
-module Text.AsmParser where
+module Text.AsmParser
+	( SymbolTable
+	, parseAsm
+	) where
 
 import Data.Asm
 
@@ -26,6 +29,8 @@ data SymbolState = SymbolState
 	} deriving (Show)
 
 makeLenses ''SymbolState
+
+type SymbolTable = M.Map String Word
 
 def :: SymbolState
 def = SymbolState
@@ -103,10 +108,10 @@ pInst = do
 		pBcs = ts "bcs" >> Bcs <$> pJump
 		pBcu = ts "bcu" >> Bcu <$> pJump
 
-pStatement :: Parser Statement
-pStatement = StatementInst <$> pInst
+pInstLabel :: Parser Inst
+pInstLabel = pInst
 	-- figure out a place for label and so that it works
-	<|> pLabel
+	<|> (pLabel *> pInst)
 	where
 		pLabel = do
 			ident <- pIdent
@@ -115,8 +120,13 @@ pStatement = StatementInst <$> pInst
 			if ident `M.member` (ss^.symbolTable)
 				then fail "duplicate label"
 				else symbolTable .= M.insert ident (ss^.pc) (ss^.symbolTable)
-			return $ Data.Asm.Label ident
+			return ident
 
-pStatements :: Parser [Statement]
-pStatements = sc *> (concat <$> sepEndBy (some pStatement) (some $ symbol ";")) <* eof
+pAsm :: Parser [Inst]
+pAsm = sc *> (concat <$> sepEndBy (some pInstLabel) (some $ symbol ";")) <* eof
+
+parseAsm :: String -> String -> Either (ParseError Char Void) ([Inst], SymbolTable)
+parseAsm n i = case runParser (runStateT pAsm def) n i of
+	Right (asm, (SymbolState t i)) -> Right (asm, t)
+	Left e                         -> Left e
 
