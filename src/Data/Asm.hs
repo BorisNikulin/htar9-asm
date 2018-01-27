@@ -39,9 +39,3 @@ data Inst = Mv Reg
 		  | Bcs Jump
 		  | Bcu Jump
 	deriving (Show)
-
--- | A single HTAR9 asm statement
-data Statement = StatementInst Inst
-			   | Label Ident
-	deriving (Show)
-

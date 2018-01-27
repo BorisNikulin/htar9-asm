@@ -3,6 +3,7 @@
 module Text.AsmParser
 	( SymbolTable
 	, parseAsm
+	, module Data.Asm
 	) where
 
 import Data.Asm
@@ -125,8 +126,11 @@ pInstLabel = pInst
 pAsm :: Parser [Inst]
 pAsm = sc *> (concat <$> sepEndBy (some pInstLabel) (some $ symbol ";")) <* eof
 
-parseAsm :: String -> String -> Either (ParseError Char Void) ([Inst], SymbolTable)
+parseAsm
+	:: String -- ^ Name of source file
+	-> String -- ^ Input to parse
+	-> Either (ParseError Char Void) ([Inst], SymbolTable)
 parseAsm n i = case runParser (runStateT pAsm def) n i of
-	Right (asm, (SymbolState t i)) -> Right (asm, t)
+	Right (asm, (SymbolState t _)) -> Right (asm, t)
 	Left e                         -> Left e
 
