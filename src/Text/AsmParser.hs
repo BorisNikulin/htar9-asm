@@ -3,7 +3,6 @@
 module Text.AsmParser
 	( SymbolTable
 	, parseAsm
-	, module Data.Asm
 	) where
 
 import Data.Asm
