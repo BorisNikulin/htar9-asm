@@ -78,7 +78,7 @@ pIdent :: Parser Ident
 pIdent = lexeme $ (:) <$> letterChar <*> many alphaNumChar
 
 pJump :: Parser Jump
-pJump = pJumpOffset <|> (JumpLabel <$> pIdent) <?> "label or signed immediate"
+pJump = pJumpOffset <|> (JumpLabel <$> getPosition <*> pIdent) <?> "label or signed immediate"
 	where
 		pJumpOffset = do
 			-- TODO how to not parse spaces after a sign (lookAhead digitChar?) (empty seemed to not work)
@@ -106,7 +106,7 @@ pInst = do
 		pLshft = ts "lshft" >> Lshft <$> pRegImm
 		pRshft = ts "rshft" >> Rshft <$> pRegImm
 		pBcs = ts "bcs" >> Bcs <$> pJump
-		pBcu = ts "bcu" >> Bcu <$> pJump
+		pBcu = ts "ba"  >> Ba  <$> pJump
 
 pInstLabel :: Parser Inst
 pInstLabel = pInst

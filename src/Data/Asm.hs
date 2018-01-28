@@ -8,6 +8,7 @@ module Data.Asm
 
 import Data.Word
 import Data.Int
+import Text.Megaparsec.Pos (SourcePos)
 
 -- | Register specified by number [0-7] with ra being the same as r0
 data Reg = Reg Word
@@ -22,8 +23,8 @@ data RegImm = Imm Word8    -- ^ Unsigned immediate
 type Ident = String
 
 -- | Specifies to jump to relative offset or to a label
-data Jump = JumpOffset Int8
-		  | JumpLabel Ident
+data Jump = JumpOffset Int
+		  | JumpLabel SourcePos Ident -- ^ SourcePos for error messages
 	deriving (Show)
 
 -- | All HTAR9 intructions
@@ -37,5 +38,5 @@ data Inst = Mv Reg
 		  | Lshft RegImm
 		  | Rshft RegImm
 		  | Bcs Jump
-		  | Bcu Jump
+		  | Ba Jump
 	deriving (Show)
