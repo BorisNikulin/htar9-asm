@@ -30,6 +30,9 @@ dependencies:
 default-extensions:
 - OverloadedStrings
 
+#ghc-options:
+#- -fno-warn-tabs
+
 library:
   source-dirs: src
 

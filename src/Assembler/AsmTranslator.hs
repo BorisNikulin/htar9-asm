@@ -90,7 +90,7 @@ translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset
 -- | Same as 'translateAsm' but for lists of @(Word, Int)@
 translateAsms
 	:: SymbolTable
-	-> [(Word, Int)]
+	-> [Inst] -- ^ List of instructions in the same order as was parsed in the table
 	-> Either LabelError [BL.ByteString]
--- make Traversable t instead of a list? (t (Word, Int))
-translateAsms t = sequence $ translateAsm t <$> zip [0..]
+{--- make Traversable t instead of a list? (t (Word, Int))-}
+translateAsms t asm = sequence $ translateAsm t <$> zip [0..] asm
