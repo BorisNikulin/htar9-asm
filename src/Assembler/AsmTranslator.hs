@@ -29,8 +29,8 @@ data LabelError =
 	deriving (Show)
 
 tReg :: Reg -> Builder
-tReg (Reg r) = byteString (B.replicate padAmmount '0')
-	<> string8 (reverse $ showIntAtBase 2 intToDigit rComp "")
+tReg (Reg r) =  string8 (reverse $ showIntAtBase 2 intToDigit rComp "")
+	         <> byteString (B.replicate padAmmount '0')
 	where
 		rComp = 7 - r
 		padAmmount = if

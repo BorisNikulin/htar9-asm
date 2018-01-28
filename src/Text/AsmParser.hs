@@ -85,10 +85,8 @@ pJump = pJumpOffset <|> (JumpLabel <$> getPosition <*> pIdent) <?> "label or sig
 			imm <- L.signed sc integer
 			if imm >= -31 && imm <= 32
 				then return $ JumpOffset imm
-				--TODO? + becomes a unisgned instead of a positive signed imm? (make parser error?)
 				else fail $ "unsigned imm nedds to be between -31 and +32"
 
--- label doesnt seem to print
 pInst :: Parser Inst
 pInst = do
 	inst <- asum [pMv, pStr, pLd, pFin, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBa] <?> "assembly instruction"
