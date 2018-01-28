@@ -26,8 +26,8 @@ data LabelError
 	deriving (Show)
 
 tReg :: Reg -> Builder
-tReg (Reg r) =  string8 (reverse $ showIntAtBase 2 intToDigit rComp "")
-	         <> byteString (B.replicate padAmmount '0')
+tReg (Reg r) =  byteString (B.replicate padAmmount '0')
+	         <> string8 (showIntAtBase 2 intToDigit rComp "")
 	where
 		rComp = 7 - r
 		padAmmount = if
@@ -36,20 +36,20 @@ tReg (Reg r) =  string8 (reverse $ showIntAtBase 2 intToDigit rComp "")
 			| otherwise  -> 0
 
 tRegImm :: RegImm -> Builder
-tRegImm (Register r) = tReg r <> "111"
-tRegImm (Imm i)      =  byteString numStr
-	                 <> byteString (B.replicate padAmmount '0')
+tRegImm (Register r) = "111" <> tReg r
+tRegImm (Imm i)      =  byteString (B.replicate padAmmount '0')
+	                 <> byteString numStr
 	where
-		numStr = B.pack . reverse $ showIntAtBase 2 intToDigit i ""
+		numStr = B.pack $ showIntAtBase 2 intToDigit i ""
 		padAmmount = 6 - B.length numStr
 
 tJumpOffset :: Jump -> Builder
-tJumpOffset (JumpOffset x) =  byteString numStr
-	                       <> byteString (B.replicate padAmmount '0')
+tJumpOffset (JumpOffset x) =  byteString (B.replicate padAmmount '0')
+	                       <> byteString numStr
 	where
 		numStr = if x >= 0
-			then B.pack . reverse $ showIntAtBase 2 intToDigit x ""
-			else B.pack . reverse $ showIntAtBase 2 intToDigit (32 + 31 + 1 + x) ""
+			then B.pack $ showIntAtBase 2 intToDigit x ""
+			else B.pack $ showIntAtBase 2 intToDigit (32 + 31 + 1 + x) ""
 		padAmmount = 6 - B.length numStr
 
 
@@ -71,17 +71,16 @@ translateAsm
 	:: SymbolTable  -- ^ Map from String labels to intruction number
 	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction
 	-> Either LabelError BL.ByteString
-translateAsm _ (_, (Mv  r))   = Right . tlb $ tReg r <> "000000"
-translateAsm _ (_, (Str r))   = Right . tlb $ tReg r <> "010000"
-translateAsm _ (_, (Ld  r))   = Right . tlb $ tReg r <> "110000"
+translateAsm _ (_, (Mv  r))   = Right . tlb $ "000000" <> tReg r
+translateAsm _ (_, (Str r))   = Right . tlb $ "000010" <> tReg r
+translateAsm _ (_, (Ld  r))   = Right . tlb $ "000011" <> tReg r
 translateAsm _ (_, (Fin))     = Right . tlb $ "000111000"
-translateAsm _ (_, (Add o))   = Right . tlb $ tRegImm o <> "100"
-translateAsm _ (_, (Sub o))   = Right . tlb $ tRegImm o <> "010"
-translateAsm _ (_, (And o))   = Right . tlb $ tRegImm o <> "110"
-translateAsm _ (_, (Lshft o)) = Right . tlb $ tRegImm o <> "001"
-translateAsm _ (_, (Rshft o)) = Right . tlb $ tRegImm o <> "101"
+translateAsm _ (_, (Add o))   = Right . tlb $ "001" <> tRegImm o
+translateAsm _ (_, (Sub o))   = Right . tlb $ "010" <> tRegImm o
+translateAsm _ (_, (And o))   = Right . tlb $ "011" <> tRegImm o
+translateAsm _ (_, (Lshft o)) = Right . tlb $ "100" <> tRegImm o
+translateAsm _ (_, (Rshft o)) = Right . tlb $ "101" <> tRegImm o
 translateAsm t (i, (Bcs j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Bcs
-translateAsm t (i, (Bcs j@(JumpOffset _)))  = Right . tlb $ tJumpOffset j <> "011"
+translateAsm t (i, (Bcs j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset j
 translateAsm t (i, (Ba  j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
-translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ tJumpOffset j <> "111"
-
+translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
