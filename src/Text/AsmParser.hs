@@ -17,10 +17,6 @@ import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-{-type Parser = Parsec Void String-}
--- ghci: flip runState def $ runParserT pStatements "" "code"
-{-type Parser = ParsecT Void String (State SymbolState)-}
--- ghci: runParser (runStateT pStatements def) "" "code"
 type Parser = StateT SymbolState (Parsec Void String)
 
 data SymbolState = SymbolState
@@ -123,6 +119,8 @@ pInstLabel = pInst
 pAsm :: Parser [Inst]
 pAsm = sc *> (concat <$> sepEndBy (some pInstLabel) (some $ symbol ";")) <* eof
 
+-- | Parses input string according to HTAR9 spec but also while being a bit loose
+-- without being ambiguous or against spec.
 parseAsm
 	:: String -- ^ Name of source file
 	-> String -- ^ Input to parse

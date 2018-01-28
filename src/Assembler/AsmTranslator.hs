@@ -1,6 +1,8 @@
 {-# Language MultiWayIf#-}
 
-module Assembler.AsmTranslator where
+module Assembler.AsmTranslator
+	( LabelError(..)
+	, translateAsm) where
 
 import Data.Asm
 import Text.AsmParser (SymbolTable)
@@ -18,14 +20,9 @@ import Text.Megaparsec.Pos (SourcePos)
 -- | @'OffsetError'@ represents a missing label or
 -- the branch to a label is too far away
 -- as branches can only branch to a relative offset.
-data LabelError =
-	MissingLabelError
-		SourcePos -- ^ Source position of the identifier and error
-		Ident     -- ^ The label being banched to
-	| OffsetError
-		SourcePos -- ^ Source position of the identifier and error
-		Ident     -- ^ The label being banched to
-		Int       -- ^ Relative difference between label and branch instruction
+data LabelError
+	= MissingLabelError SourcePos Ident
+	| OffsetError SourcePos Ident Int
 	deriving (Show)
 
 tReg :: Reg -> Builder
@@ -67,7 +64,13 @@ calcRelativeOffset t (JumpLabel sp l) from = case t !? l of
 
 tlb = toLazyByteString
 
-translateAsm :: SymbolTable -> (Word, Inst) -> Either LabelError BL.ByteString
+-- | Takes HTAR9 intructions and neccessary supporting data to
+-- translate to 9 chars of @\'1\'@s and @\'0\'@s in little endian.
+-- The function is intened to be used with 'Data.AsmParser.parseAsm'.
+translateAsm
+	:: SymbolTable  -- ^ Map from String labels to intruction number
+	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction
+	-> Either LabelError BL.ByteString
 translateAsm _ (_, (Mv  r))   = Right . tlb $ tReg r <> "000000"
 translateAsm _ (_, (Str r))   = Right . tlb $ tReg r <> "010000"
 translateAsm _ (_, (Ld  r))   = Right . tlb $ tReg r <> "110000"
