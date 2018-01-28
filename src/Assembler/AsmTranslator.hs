@@ -2,7 +2,9 @@
 
 module Assembler.AsmTranslator
 	( LabelError(..)
-	, translateAsm) where
+	, translateAsm
+	, translateAsms
+	) where
 
 import Data.Asm
 import Text.AsmParser (SymbolTable)
@@ -84,3 +86,11 @@ translateAsm t (i, (Bcs j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= trans
 translateAsm t (i, (Bcs j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset j
 translateAsm t (i, (Ba  j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
 translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
+
+-- | Same as 'translateAsm' but for lists of @(Word, Int)@
+translateAsms
+	:: SymbolTable
+	-> [(Word, Int)]
+	-> Either LabelError [BL.ByteString]
+-- make Traversable t instead of a list? (t (Word, Int))
+translateAsms t = sequence $ translateAsm t <$> zip [0..]
