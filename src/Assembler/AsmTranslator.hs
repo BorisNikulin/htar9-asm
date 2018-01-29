@@ -82,8 +82,8 @@ translateAsm _ (_, (Sub o))   = Right . tlb $ "010" <> tRegImm o
 translateAsm _ (_, (And o))   = Right . tlb $ "011" <> tRegImm o
 translateAsm _ (_, (Lshft o)) = Right . tlb $ "100" <> tRegImm o
 translateAsm _ (_, (Rshft o)) = Right . tlb $ "101" <> tRegImm o
-translateAsm t (i, (Bcs j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Bcs
-translateAsm t (i, (Bcs j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset j
+translateAsm t (i, (Bch j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Bch
+translateAsm t (i, (Bch j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset j
 translateAsm t (i, (Ba  j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
 translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
 

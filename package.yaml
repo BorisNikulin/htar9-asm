@@ -30,20 +30,27 @@ dependencies:
 default-extensions:
 - OverloadedStrings
 
-#ghc-options:
-#- -fno-warn-tabs
+ghc-options:
+- -fno-warn-tabs
 
 library:
   source-dirs: src
 
 executables:
   htar9-asm-exe:
-    main:                Main.hs
-    source-dirs:         app
+    main:                main.cpp
+    source-dirs: src/cpp
+    c-sources:
+    - src/cpp/argument_parser.cpp
+    - src/cpp/interpreter.cpp
+    - src/cpp/haskell_facade.cpp
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -no-hs-main
+    extra-libraries:
+      - stdc++
     dependencies:
     - htar9-asm
 

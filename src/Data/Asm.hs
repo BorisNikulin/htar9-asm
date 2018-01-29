@@ -19,7 +19,7 @@ data RegImm = Imm Word8    -- ^ Unsigned immediate
 			| Register Reg
 	deriving (Show)
 
--- | Identifier for labels and bcs and bcu instrucitons
+-- | Identifier for labels and bch and ba instrucitons
 type Ident = String
 
 -- | Specifies to jump to relative offset or to a label
@@ -37,6 +37,6 @@ data Inst = Mv Reg
 		  | And RegImm
 		  | Lshft RegImm
 		  | Rshft RegImm
-		  | Bcs Jump
+		  | Bch Jump
 		  | Ba Jump
 	deriving (Show)
