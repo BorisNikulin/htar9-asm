@@ -23,7 +23,7 @@ cExtractParseError :: ParseError Char Void -> CString
 cExtractParseError e = unsafePerformIO (newCString (parseErrorPretty e))
 
 cExtractLabelError :: LabelError -> CString
-cExtractLabelError e = unsafePerformIO (newCString (show e))
+cExtractLabelError e = unsafePerformIO (newCString (labelErrorPretty e))
 
 cExtractCodeList :: [BL.ByteString] -> CString
 cExtractCodeList l = unsafePerformIO (newCString (BL.unpack (BL.concat l)))
