@@ -86,7 +86,7 @@ tlb = toLazyByteString
 
 -- | Takes HTAR9 intructions and neccessary supporting data to
 -- translate to 9 chars of @\'1\'@s and @\'0\'@s in little endian.
--- The function is intened to be used with 'Data.AsmParser.parseAsm'.
+-- The function is intended to be used with 'Data.AsmParser.parseAsm'.
 translateAsm
 	:: SymbolTable  -- ^ Map from String labels to intruction number
 	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction
@@ -105,10 +105,10 @@ translateAsm t (i, (Bch j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset
 translateAsm t (i, (Ba  j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
 translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
 
--- | Same as 'translateAsm' but for lists of @(Word, Int)@
+-- | Same as 'translateAsm' but for lists of 'Data.Asm.Int'
 translateAsms
 	:: SymbolTable
 	-> [Inst] -- ^ List of instructions in the same order as was parsed in the table
 	-> Either LabelError [BL.ByteString]
-{--- make Traversable t instead of a list? (t (Word, Int))-}
+-- make Traversable t instead of a list? (t (Word, Int))
 translateAsms t asm = sequence $ translateAsm t <$> zip [0..] asm
