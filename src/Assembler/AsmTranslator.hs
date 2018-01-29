@@ -1,9 +1,11 @@
 {-# Language MultiWayIf#-}
 
 module Assembler.AsmTranslator
-	( LabelError(..)
-	, translateAsm
+	( translateAsm
 	, translateAsms
+	-- * Errors
+	, LabelError(..)
+	, labelErrorPretty
 	) where
 
 import Data.Asm
@@ -17,7 +19,7 @@ import Data.Map.Strict ((!?))
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder
-import Text.Megaparsec.Pos (SourcePos)
+import Text.Megaparsec.Pos (SourcePos, sourcePosPretty)
 
 -- | @'OffsetError'@ represents a missing label or
 -- the branch to a label is too far away
@@ -26,6 +28,22 @@ data LabelError
 	= MissingLabelError SourcePos Ident
 	| OffsetError SourcePos Ident Int
 	deriving (Show)
+
+labelErrorPretty :: LabelError -> String
+labelErrorPretty (MissingLabelError sp l) =
+	sourcePosPretty sp
+	<> "\n"
+	<> "can not branch to label "
+	<> show l
+	<> " as it is missing"
+labelErrorPretty (OffsetError sp l x) =
+	sourcePosPretty sp
+	<> "\n"
+	<> "can not branch to label "
+	<> show l
+	<> " as a relative jump of "
+	<> show x
+	<> " is outside the maximum range of -31 to 32"
 
 tReg :: Reg -> Builder
 tReg (Reg r) =  byteString (B.replicate padAmmount '0')
