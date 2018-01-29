@@ -103,9 +103,8 @@ pInst = do
 		pBa  = ts "ba"  >> Ba  <$> pJump
 
 pInstLabel :: Parser Inst
-pInstLabel = pInst
-	-- figure out a place for label and so that it works
-	<|> (pLabel *> pInst)
+pInstLabel = ((try pLabel) *> pInst)
+	<|> pInst
 	where
 		pLabel = do
 			ident <- pIdent
