@@ -1,9 +1,11 @@
 {-# Language MultiWayIf#-}
 
 module Assembler.AsmTranslator
-	( LabelError(..)
-	, translateAsm
+	( translateAsm
 	, translateAsms
+	-- * Errors
+	, LabelError(..)
+	, labelErrorPretty
 	) where
 
 import Data.Asm
@@ -17,7 +19,7 @@ import Data.Map.Strict ((!?))
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder
-import Text.Megaparsec.Pos (SourcePos)
+import Text.Megaparsec.Pos (SourcePos, sourcePosPretty)
 
 -- | @'OffsetError'@ represents a missing label or
 -- the branch to a label is too far away
@@ -26,6 +28,22 @@ data LabelError
 	= MissingLabelError SourcePos Ident
 	| OffsetError SourcePos Ident Int
 	deriving (Show)
+
+labelErrorPretty :: LabelError -> String
+labelErrorPretty (MissingLabelError sp l) =
+	sourcePosPretty sp
+	<> "\n"
+	<> "can not branch to label "
+	<> show l
+	<> " as it is missing"
+labelErrorPretty (OffsetError sp l x) =
+	sourcePosPretty sp
+	<> "\n"
+	<> "can not branch to label "
+	<> show l
+	<> " as a relative jump of "
+	<> show x
+	<> " is outside the maximum range of -31 to 32"
 
 tReg :: Reg -> Builder
 tReg (Reg r) =  byteString (B.replicate padAmmount '0')
@@ -68,7 +86,7 @@ tlb = toLazyByteString
 
 -- | Takes HTAR9 intructions and neccessary supporting data to
 -- translate to 9 chars of @\'1\'@s and @\'0\'@s in little endian.
--- The function is intened to be used with 'Data.AsmParser.parseAsm'.
+-- The function is intended to be used with 'Data.AsmParser.parseAsm'.
 translateAsm
 	:: SymbolTable  -- ^ Map from String labels to intruction number
 	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction
@@ -87,10 +105,10 @@ translateAsm t (i, (Bch j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset
 translateAsm t (i, (Ba  j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
 translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
 
--- | Same as 'translateAsm' but for lists of @(Word, Int)@
+-- | Same as 'translateAsm' but for lists of 'Data.Asm.Int'
 translateAsms
 	:: SymbolTable
 	-> [Inst] -- ^ List of instructions in the same order as was parsed in the table
 	-> Either LabelError [BL.ByteString]
-{--- make Traversable t instead of a list? (t (Word, Int))-}
+-- make Traversable t instead of a list? (t (Word, Int))
 translateAsms t asm = sequence $ translateAsm t <$> zip [0..] asm
