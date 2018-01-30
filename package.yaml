@@ -44,13 +44,14 @@ executables:
     - src/cpp/argument_parser.cpp
     - src/cpp/interpreter.cpp
     - src/cpp/haskell_facade.cpp
+    - src/cpp/ncurses_display.cpp
+
     ghc-options:
     - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
     - -no-hs-main
     extra-libraries:
       - stdc++
+      - ncurses
     dependencies:
     - htar9-asm
 
