@@ -30,6 +30,13 @@ data CpuState w = CpuState
 
 newtype Cpu w s a = Cpu { unCpu :: ReaderT (CpuEnv w s) (ST s) a }
 
+unsafeThawCpuState :: PrimMonad m => CpuState w -> m (CpuEnv w (PrimState m))
+unsafeThawCpuState (CpuState regs flags ram) =
+	CpuEnv
+	<$> V.unsafeThaw regs
+	<*> V.unsafeThaw flags
+	<*> V.unsafeThaw ram
+
 unsafeFreezeCpuEnv :: PrimMonad m => CpuEnv w (PrimState m) ->  m (CpuState w)
 unsafeFreezeCpuEnv (CpuEnv regs flags ram) =
 	CpuState
@@ -37,8 +44,8 @@ unsafeFreezeCpuEnv (CpuEnv regs flags ram) =
 	<*> V.unsafeFreeze flags
 	<*> V.unsafeFreeze ram
 
-runCpu :: forall a w. (forall s. Cpu w s a) -> (forall s. CpuEnv w s) -> (a, CpuState w)
-runCpu cpu env = runST $ runReaderT readerComp env
+runCpu :: forall a w. (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
+runCpu cpu state = runST $ runReaderT readerComp (unsafeThawCpuStat env)
 	where
 		readerComp :: ReaderT (CpuEnv w s) (ST s) (a, CpuState w)
 		readerComp = do
