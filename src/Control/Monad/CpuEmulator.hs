@@ -45,7 +45,9 @@ unsafeFreezeCpuEnv (CpuEnv regs flags ram) =
 	<*> V.unsafeFreeze ram
 
 runCpu :: forall a w. (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
-runCpu cpu state = runST $ runReaderT readerComp (unsafeThawCpuStat env)
+runCpu cpu state = runST $ do
+	cpuEnv <- unsafeThawCpuState state
+	runReaderT readerComp cpuEnv
 	where
 		readerComp :: ReaderT (CpuEnv w s) (ST s) (a, CpuState w)
 		readerComp = do
@@ -66,5 +68,39 @@ instance Monad (Cpu w s) where
 		let (Cpu r2) = f a
 		runReaderT r2 env
 
-getReg :: CpuEnv w s -> Int -> Cpu w s w
-getReg (CpuEnv regs _ _) i = Cpu $ MV.read regs i
+getReg :: Int -> Cpu w s w
+getReg i = Cpu . ReaderT $ \r -> MV.read (r^.regs) i
+
+setReg :: Int -> w -> Cpu w s ()
+setReg i x = Cpu . ReaderT $ \r -> MV.write (r^.regs) i x
+
+getFlag :: Int -> Cpu w s Bool
+getFlag i = Cpu . ReaderT $ \r -> MV.read (r^.flags) i
+
+setFlag :: Int -> Bool -> Cpu w s ()
+setFlag i b = Cpu . ReaderT $ \r -> MV.write (r^.flags) i b
+
+getRam :: Int -> Cpu w s w
+getRam i = Cpu . ReaderT $ \r -> MV.read (r^.ram) i
+
+setRam :: Int -> w -> Cpu w s ()
+setRam i x = Cpu . ReaderT $ \r -> MV.write (r^.ram) i x
+
+v = V.fromList [0, 1, 2, 3, 20] :: V.Vector Int
+b = V.fromList [False] :: V.Vector Bool
+state = CpuState v b v
+
+test = runCpu comp state
+
+comp = do
+	r0 <- getReg 0
+	r4 <- getReg 4
+	{-return $ r0 + r4-}
+	v <- getRam 3
+	setFlag 0 True
+	flag <- getFlag 0
+	setReg 0 100
+	if flag
+		then return r0
+		else return r4
+
