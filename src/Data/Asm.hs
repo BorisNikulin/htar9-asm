@@ -11,7 +11,7 @@ import Data.Int
 import Text.Megaparsec.Pos (SourcePos)
 
 -- | Register specified by a number between 0 and 7 with register a being the same as register 0.
-data Reg = Reg Word
+data Reg = Reg Word8
 	deriving (Show)
 
 -- | Regiser or immediate used by many instructions.

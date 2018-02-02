@@ -74,13 +74,20 @@ unsafeThawCpuState (CpuState regs flags ram pc) =
 	<*> V.unsafeThaw ram
 	<*> newSTRef pc
 
+freezeCpuEnv :: CpuEnv w s -> ST s (CpuState w)
+freezeCpuEnv (CpuEnv regs flags ram pc) =
+	CpuState
+	<$> V.freeze regs
+	<*> V.freeze flags
+	<*> V.freeze ram
+	<*> readSTRef pc
+
 unsafeFreezeCpuEnv :: CpuEnv w s -> ST s (CpuState w)
 unsafeFreezeCpuEnv (CpuEnv regs flags ram pc) =
 	CpuState
 	<$> V.unsafeFreeze regs
 	<*> V.unsafeFreeze flags
 	<*> V.unsafeFreeze ram
-	{-<*> return pc-}
 	<*> readSTRef pc
 
 runCpu' :: forall a w. (forall s. CpuState w -> ST s (CpuEnv w s)) -> (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
@@ -151,6 +158,10 @@ class Monad m => MonadCpu w m | m -> w  where
 	default setPc :: (MonadTrans t, MonadCpu w m1, m ~ t m1) => Word -> m ()
 	setPc = lift . setPc
 
+	getState :: m (CpuState w)
+	default getState :: (MonadTrans t, MonadCpu w m1, m ~ t m1) => m (CpuState w)
+	getState = lift getState
+
 instance MonadCpu w (Cpu w s) where
 	getReg i    = Cpu . ReaderT $ \r -> MV.read  (r^.regs) i
 	setReg i x  = Cpu . ReaderT $ \r -> MV.write (r^.regs) i x
@@ -163,6 +174,8 @@ instance MonadCpu w (Cpu w s) where
 
 	getPc       = Cpu . ReaderT $ \r -> readSTRef  (r^.pc)
 	setPc x     = Cpu . ReaderT $ \r -> writeSTRef (r^.pc) x
+
+	getState    = Cpu . ReaderT $ \r -> freezeCpuEnv r
 
 instance MonadCpu w m => MonadCpu w (ReaderT r m)
 instance (MonadCpu w m, Monoid l) => MonadCpu w (WriterT l m)
