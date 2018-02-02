@@ -1,9 +1,10 @@
 {-# Language MultiWayIf#-}
 
 module Assembler.AsmTranslator
-	( translateAsm
+	( -- * Translation functions
+	  translateAsm
 	, translateAsms
-	-- * Errors
+	  -- * Errors
 	, LabelError(..)
 	, labelErrorPretty
 	) where
@@ -21,14 +22,15 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.ByteString.Builder
 import Text.Megaparsec.Pos (SourcePos, sourcePosPretty)
 
--- | @'OffsetError'@ represents a missing label or
--- the branch to a label is too far away
--- as branches can only branch to a relative offset.
+-- | @'LabelError'@ represents a missing label or
+-- the jump to a label is too far away
+-- as jumps can only branch to a bounded relative offset.
 data LabelError
 	= MissingLabelError SourcePos Ident
 	| OffsetError SourcePos Ident Int
 	deriving (Show)
 
+-- | Pretty format a 'LabelError'.
 labelErrorPretty :: LabelError -> String
 labelErrorPretty (MissingLabelError sp l) =
 	sourcePosPretty sp
@@ -88,8 +90,8 @@ tlb = toLazyByteString
 -- translate to 9 chars of @\'1\'@s and @\'0\'@s in little endian.
 -- The function is intended to be used with 'Data.AsmParser.parseAsm'.
 translateAsm
-	:: SymbolTable  -- ^ Map from String labels to intruction number
-	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction
+	:: SymbolTable  -- ^ map from String labels to intruction number
+	-> (Word, Inst) -- ^ a tuple of intruction number and the corresponding instruction
 	-> Either LabelError BL.ByteString
 translateAsm _ (_, (Mv  r))   = Right . tlb $ "000000" <> tReg r
 translateAsm _ (_, (Str r))   = Right . tlb $ "000010" <> tReg r
@@ -105,10 +107,10 @@ translateAsm t (i, (Bch j@(JumpOffset _)))  = Right . tlb $ "110" <> tJumpOffset
 translateAsm t (i, (Ba  j@(JumpLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
 translateAsm t (i, (Ba  j@(JumpOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
 
--- | Same as 'translateAsm' but for lists of 'Data.Asm.Int'
+-- | Same as 'translateAsm' but for lists of 'Data.Asm.Inst'.
 translateAsms
 	:: SymbolTable
-	-> [Inst] -- ^ List of instructions in the same order as was parsed in the table
+	-> [Inst] -- ^ list of instructions in the same order as was parsed into the table
 	-> Either LabelError [BL.ByteString]
 -- make Traversable t instead of a list? (t (Word, Int))
 translateAsms t asm = sequence $ translateAsm t <$> zip [0..] asm

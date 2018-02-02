@@ -19,14 +19,15 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = StateT SymbolState (Parsec Void String)
 
+-- | Table for mapping labels to their instruction.
+type SymbolTable = M.Map Ident Word
+
 data SymbolState = SymbolState
-	{ _symbolTable :: M.Map String Word
+	{ _symbolTable :: SymbolTable
 	, _pc :: !Word -- ^ program counter (not line number)
 	} deriving (Show)
 
 makeLenses ''SymbolState
-
-type SymbolTable = M.Map String Word
 
 def :: SymbolState
 def = SymbolState
@@ -118,8 +119,8 @@ pInstLabel = ((try pLabel) *> pInst)
 pAsm :: Parser [Inst]
 pAsm = sc *> (concat <$> sepEndBy (some pInstLabel) (some $ symbol ";")) <* eof
 
--- | Parses input string according to HTAR9 spec but also while being a bit loose
--- without being ambiguous or against spec.
+-- | Parses input string according to HTAR9 spec while being a bit loose
+-- but unambiguously or against spec.
 parseAsm
 	:: String -- ^ Name of source file
 	-> String -- ^ Input to parse

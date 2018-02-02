@@ -10,24 +10,24 @@ import Data.Word
 import Data.Int
 import Text.Megaparsec.Pos (SourcePos)
 
--- | Register specified by number [0-7] with ra being the same as r0
+-- | Register specified by a number between 0 and 7 with register a being the same as register 0.
 data Reg = Reg Word
 	deriving (Show)
 
--- | Regiser or immediate used by many instructions
-data RegImm = Imm Word8    -- ^ Unsigned immediate
+-- | Regiser or immediate used by many instructions.
+data RegImm = Imm Word8    -- ^ unsigned immediate
 			| Register Reg
 	deriving (Show)
 
--- | Identifier for labels and bch and ba instrucitons
+-- | Identifier for labels and jump instructions.
 type Ident = String
 
--- | Specifies to jump to relative offset or to a label
+-- | Specifies to a jump to relative offset or to a label.
 data Jump = JumpOffset Int
-		  | JumpLabel SourcePos Ident -- ^ SourcePos for error messages
+		  | JumpLabel SourcePos Ident -- ^ 'SourcePos' for error messages
 	deriving (Show)
 
--- | All HTAR9 intructions
+-- | All HTAR9 intructions.
 data Inst = Mv Reg
 		  | Str Reg
 		  | Ld Reg
