@@ -9,15 +9,25 @@
 	, UndecidableInstances
 	#-}
 
-module Control.Monad.CpuEmulator where
+module Control.Monad.Cpu
+	( -- * MonadCpu class
+	  MonadCpu(..)
+	, modifyPc
+	  -- * The Cpu monad
+	, Cpu
+	, CpuState(..)
+	, runCpu
+	, unsafeRunCpu
+	) where
 
 import Data.Word
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
+import Data.STRef
 import Lens.Micro.Platform
 import Control.Monad.Primitive
 import Control.Monad.Reader
-import Control.Monad.ST
+import Control.Monad.ST.Strict
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad.RWS
@@ -28,38 +38,50 @@ data CpuEnv w s = CpuEnv
 	{ _regs  :: MV.MVector s w
 	, _flags :: MV.MVector s Bool
 	, _ram   :: MV.MVector s w
+	, _pc     :: STRef s Word -- or use Word64?
 	}
 
 makeLenses ''CpuEnv
 
+-- | The initial and final state of a 'Cpu' computation.
 data CpuState w = CpuState
 	{ cpuRegs  :: V.Vector w
 	, cpuFlags :: V.Vector Bool
 	, cpuRam   :: V.Vector w
+	, cpuPc    :: Word
 	} deriving (Show)
 
+-- | 'Cpu' monad with registers, flags, ram, and a program counter.
+-- 'Cpu' is designed with emulating simple instruction sets and thus is more like
+-- a single core, non-superscalar cpu. 'Cpu' is parametarized by the contents of
+-- the registers and ram. NB: the getXXX, except getPc, functions can be passed
+-- indecies out of bounds which will cause out of bounds errors.
 newtype Cpu w s a = Cpu { unCpu :: ReaderT (CpuEnv w s) (ST s) a }
 
-thawCpuState :: PrimMonad m => CpuState w -> m (CpuEnv w (PrimState m))
-thawCpuState (CpuState regs flags ram) =
+thawCpuState :: CpuState w -> (forall s. ST s (CpuEnv w s))
+thawCpuState (CpuState regs flags ram pc) =
 	CpuEnv
 	<$> V.thaw regs
 	<*> V.thaw flags
 	<*> V.thaw ram
+	<*> newSTRef pc
 
-unsafeThawCpuState :: PrimMonad m => CpuState w -> m (CpuEnv w (PrimState m))
-unsafeThawCpuState (CpuState regs flags ram) =
+unsafeThawCpuState :: CpuState w -> ST s (CpuEnv w s)
+unsafeThawCpuState (CpuState regs flags ram pc) =
 	CpuEnv
 	<$> V.unsafeThaw regs
 	<*> V.unsafeThaw flags
 	<*> V.unsafeThaw ram
+	<*> newSTRef pc
 
-unsafeFreezeCpuEnv :: PrimMonad m => CpuEnv w (PrimState m) ->  m (CpuState w)
-unsafeFreezeCpuEnv (CpuEnv regs flags ram) =
+unsafeFreezeCpuEnv :: CpuEnv w s -> ST s (CpuState w)
+unsafeFreezeCpuEnv (CpuEnv regs flags ram pc) =
 	CpuState
 	<$> V.unsafeFreeze regs
 	<*> V.unsafeFreeze flags
 	<*> V.unsafeFreeze ram
+	{-<*> return pc-}
+	<*> readSTRef pc
 
 runCpu' :: forall a w. (forall s. CpuState w -> ST s (CpuEnv w s)) -> (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
 runCpu' thaw cpu state = runST $ do
@@ -72,12 +94,12 @@ runCpu' thaw cpu state = runST $ do
 			frozenEnv <- ReaderT unsafeFreezeCpuEnv
 			return (a, frozenEnv)
 
--- | Runs Cpu by safely thawing provided vectors O(n).
+-- | Runs 'Cpu' by safely thawing provided vectors O(n).
 -- The provided vectors can still be used after the function.
 runCpu :: (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
 runCpu = runCpu' thawCpuState
 
--- | Runs Cpu by unsafely thawing provided vectors O(1).
+-- | Runs 'Cpu' by unsafely thawing provided vectors O(1).
 -- The provided vectors must not be used after this function.
 unsafeRunCpu :: (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
 unsafeRunCpu = runCpu' unsafeThawCpuState
@@ -95,7 +117,7 @@ instance Monad (Cpu w s) where
 		let (Cpu r2) = f a
 		runReaderT r2 env
 
--- mtl typeclasses
+-- | The mtl style typeclass for 'Cpu' monads.
 class Monad m => MonadCpu w m | m -> w  where
 	getReg :: Int -> m w
 	default getReg :: (MonadTrans t, MonadCpu w m1, m ~ t m1) => Int -> m w
@@ -121,16 +143,26 @@ class Monad m => MonadCpu w m | m -> w  where
 	default setRam :: (MonadTrans t, MonadCpu w m1, m ~ t m1) => Int -> w -> m ()
 	setRam = (lift .) . setRam
 
-instance MonadCpu w (Cpu w s) where
-	getReg i = Cpu . ReaderT $ \r -> MV.read (r^.regs) i
-	setReg i x = Cpu . ReaderT $ \r -> MV.write (r^.regs) i x
+	getPc :: m Word
+	default getPc :: (MonadTrans t, MonadCpu w m1, m ~ t m1) => m Word
+	getPc = lift getPc
 
-	getFlag i = Cpu . ReaderT $ \r -> MV.read (r^.flags) i
+	setPc :: Word -> m ()
+	default setPc :: (MonadTrans t, MonadCpu w m1, m ~ t m1) => Word -> m ()
+	setPc = lift . setPc
+
+instance MonadCpu w (Cpu w s) where
+	getReg i    = Cpu . ReaderT $ \r -> MV.read  (r^.regs) i
+	setReg i x  = Cpu . ReaderT $ \r -> MV.write (r^.regs) i x
+
+	getFlag i   = Cpu . ReaderT $ \r -> MV.read  (r^.flags) i
 	setFlag i b = Cpu . ReaderT $ \r -> MV.write (r^.flags) i b
 
-	getRam i = Cpu . ReaderT $ \r -> MV.read (r^.ram) i
-	setRam i x = Cpu . ReaderT $ \r -> MV.write (r^.ram) i x
+	getRam i    = Cpu . ReaderT $ \r -> MV.read  (r^.ram) i
+	setRam i x  = Cpu . ReaderT $ \r -> MV.write (r^.ram) i x
 
+	getPc       = Cpu . ReaderT $ \r -> readSTRef  (r^.pc)
+	setPc x     = Cpu . ReaderT $ \r -> writeSTRef (r^.pc) x
 
 instance MonadCpu w m => MonadCpu w (ReaderT r m)
 instance (MonadCpu w m, Monoid l) => MonadCpu w (WriterT l m)
@@ -139,24 +171,9 @@ instance (MonadCpu w m, Monoid l) => MonadCpu w (RWST r l s m)
 instance MonadCpu w m => MonadCpu w (ExceptT e m)
 instance MonadCpu w m => MonadCpu w (ContT r m)
 
-v = V.fromList [0, 1, 2, 3, 20] :: V.Vector Int
-b = V.fromList [False] :: V.Vector Bool
-initState = CpuState v b v
-
-test = runCpu (runReaderT comp 2) initState
-
-comp :: ReaderT Int (Cpu Int s) Int
-comp = do
-	env <- ask
-	setReg 0 env
-	r0 <- getReg 0
-	return r0
-	{-r4 <- getReg 4-}
-	{-{-return $ r0 + r4-}-}
-	{-v <- getRam 3-}
-	{-setFlag 0 True-}
-	{-flag <- getFlag 0-}
-	{-if flag-}
-		{-then return r0-}
-		{-else return r4-}
-
+-- | Strictly modifies the program counter with the given function.
+modifyPc :: MonadCpu w m => (Word -> Word) -> m ()
+modifyPc f = do
+	pc <- getPc
+	let pc' = f pc
+	pc' `seq` setPc pc'
