@@ -37,6 +37,14 @@ public:
     }
   };
 
+  struct InvalidPC : public std::exception
+  {
+    const char * what() const throw()
+    {
+      return "Program counter addressed instruction that does not exist";
+    }
+  };
+
   Interpreter(std::size_t numReg, std::size_t memSize, char * insns);
   ~Interpreter() = default;
 

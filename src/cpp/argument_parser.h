@@ -1,8 +1,3 @@
-/*
-  Code adapted from
-   https://stackoverflow.com/questions/865668/how-to-parse-command-line-arguments-in-c
- */
-
 #pragma once
 
 #include <string>
