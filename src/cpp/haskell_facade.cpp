@@ -31,7 +31,9 @@ HaskellFacade::~HaskellFacade()
  * @return           Pointer to C string of machine code
  */
 
-char * HaskellFacade::assembleFile(char * fname, char * fcontents)
+char * HaskellFacade::assembleFile(char * fname, char * fcontents, int * status)
 {
-  return (char *)cAssemble(fname, fcontents);
+  AsmResult * res = (AsmResult *)cAssemble(fname, fcontents);
+  *status = res->status;
+  return res->str;
 }

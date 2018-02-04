@@ -1,12 +1,115 @@
-#include "argument_parser.h"
 #include "haskell_facade.h"
 #include "ncurses_display.h"
 
+#include <getopt.h>
+#include <cstring>
 #include <iostream>
 #include <fstream>
 #include <memory>
 #include <exception>
 #include <utility>
+
+#ifndef OUT_FLAG
+#define OUT_FLAG 0x2
+#endif
+
+#ifndef FORM_FLAG
+#define FORM_FLAG 0x1
+#endif
+
+/**
+ * Print program usage statement
+ */
+
+static void printUsage()
+{
+  std::cerr << "htar9-asm-exe" << " - HTAR9 Assembler and Interpreter\n";
+  std::cerr << "Usage:" << " [-h]" << " [-f]" << " [-o outfile]" << " src_file";
+  std::cerr << "\n\nsrc_file: HTAR9 assembly (.s) file";
+  std::cerr << "\n\nAvailable options: \n";
+  std::cerr << "-h --help\t\t\tShow this help text\n";
+  std::cerr << "-f --formatted\t\t\tOutput machine code as formatted binary instead of unformatted - does nothing if -o not specified\n";
+  std::cerr << "-o --output outfile\t\tOutput assembled machine code to the specified file - do not run interpreter\n";
+  std::cerr << std::endl;
+}
+
+/**
+ * Parse command line arguments for use by main
+ *
+ * @param argc    argc from main
+ * @param argv    argv from main
+ * @param flags   pointer to flag integer
+ * @param outfile pointer to c-string - will contain outfile, if any
+ * @param infile  pointer to c-string - will contain infile
+ */
+
+static void parseArgs(int argc, char * * argv, int * flags, char * * outfile,
+  char * * infile)
+{
+  struct option long_options[] =
+  {
+    {"help",      no_argument,        0,    'h' },
+    {"formatted", no_argument,        0,    'f' },
+    {"output",    required_argument,  0,    'o' },
+    {0,           0,                  0,     0  }
+  };
+
+  int c;
+
+  while(1)
+  {
+    int option_index = 0;
+    c = getopt_long(argc, argv, "hfo:", long_options, &option_index);
+
+    if(c == -1)
+    {
+      break;
+    }
+    else
+    {
+      switch(c)
+      {
+        // output
+        case 'o':
+          *flags |= OUT_FLAG;
+          *outfile = new char[strlen(optarg)];
+          strcpy(*outfile, optarg);
+          break;
+        // formatted output
+        case 'f':
+          *flags |= FORM_FLAG;
+          break;
+        // help
+        case 'h':
+          printUsage();
+          exit(0);
+        // unrecognized arg
+        case '?':
+          break;
+        default:
+          abort();
+      }
+    }
+  }
+
+  if(!(*flags & OUT_FLAG) && (*flags & FORM_FLAG))
+  {
+    std::cerr << "Warning: formatted output requested but -o not provided" << std::endl;
+  }
+
+  // remaining non-option arguments
+  if(optind < argc)
+  {
+    *infile = new char[strlen(argv[optind])];
+    strcpy(*infile, argv[optind]);
+  }
+  // no remaining args
+  else
+  {
+    std::cerr << "Error: No input file specified." << std::endl;
+    exit(64); // usage error
+  }
+}
 
 /**
  * Reads a file into a C string, returns a unique pointer to that string
@@ -42,73 +145,27 @@ static std::unique_ptr<char[]> readFile(const std::string & fname)
   return std::unique_ptr<char[]>(buffer);
 }
 
-/**
- * Print program usage statement
- */
-
-static void printUsage()
-{
-  std::cerr << "htar9-asm-exe" << " - HTAR9 Assembler and Interpreter\n";
-  std::cerr << "Usage:" << " [-h]" << " [-f]" << " [-o outfile]" << " src_file";
-  std::cerr << "\n\nsrc_file: HTAR9 assembly (.s) file";
-  std::cerr << "\n\nAvailable options: \n";
-  std::cerr << "-h\t\t\tShow this help text\n";
-  std::cerr << "-f\t\t\tOutput machine code as formatted binary instead of unformatted - does nothing if -o not specified\n";
-  std::cerr << "-o outfile\t\tOutput assembled machine code to the specified file - do not run interpreter\n";
-  std::cerr << std::endl;
-}
-
-
 int main(int argc, char * * argv)
 {
-  ArgumentParser args(argc, (const char * *)argv);
+  int flags;
+  // Pointer to c-string containing output filename
+  char * outfile;
+  // Pointer to c-string containing input filename
+  char * infile;
 
-  // Check if we're printing usage statement
-  if(argc == 1 || args.cmdOptionExists("-h"))
-  {
-    printUsage();
-    return 0;
-  }
+  parseArgs(argc, argv, &flags, &outfile, &infile);
 
   // If we need to output, set flag
-  bool output = args.cmdOptionExists("-o");
+  bool output = flags & OUT_FLAG;
   // If formatted output is requested, set flag
-  bool formatOutput = args.cmdOptionExists("-f");
-
-  // Remove -f flag if present
-  args.popCmdOption("-f");
-
-  // Remove -o flag if present, return outfile if supplied
-  const std::string & outfile = args.popCmdOption(std::string("-o"));
+  bool formatOutput = flags & FORM_FLAG;
 
   // If output was requested (-o) and outfile is not supplied, error
-  if(output && outfile.empty())
-  {
-    std::cerr << "Requested output but no outfile provided." << std::endl;
-    return -1;
-  }
-  else if(output)
+  if(output)
   {
     std::cout << "Writing machine code to " << outfile << std::endl;
   }
 
-  // List of remaining arguments
-  const std::vector<std::string> & remTokens = args.getRemainingTokens();
-
-  // No filename provided
-  if(remTokens.empty())
-  {
-    std::cerr << "No input file provided." << std::endl;
-    return -1;
-  }
-  // Too many remaining arguments - issue warning, but no error
-  else if(remTokens.size() > 1)
-  {
-    std::cerr << "Warning: multiple source files provided. Ignoring all but first." << std::endl;
-  }
-
-  // Front of list will be the source file
-  const std::string & infile = remTokens.front();
   std::cout << "Reading assembly from " << infile << std::endl;
 
   try
@@ -116,11 +173,21 @@ int main(int argc, char * * argv)
     // Read file into a C string
     std::unique_ptr<char[]> fileContents = std::move(readFile(infile));
 
+    int status;
+
     // Init haskell handler
     HaskellFacade hf(&argc, argv);
 
     // Punt to Haskell assembler - result is a C string of binary
-    char * result = hf.assembleFile((char *)infile.c_str(), (char *)fileContents.get());
+    char * result = hf.assembleFile((char *)infile, (char *)fileContents.get(), &status);
+
+    delete[] infile;
+
+    if(status)
+    {
+      std::cerr << "error:\n" << result << std::endl;
+      exit(status);
+    }
 
     std::cout << "Assembly complete. ";
 
@@ -136,8 +203,10 @@ int main(int argc, char * * argv)
 
       if(!ofs.good())
       {
-        throw std::runtime_error("Could not write to specified file: " + outfile);
+        throw std::runtime_error("Could not write to specified file");
       }
+
+      delete[] outfile;
 
       // Convert result to a std::string
       std::string resStr = std::string(result);
@@ -165,7 +234,6 @@ int main(int argc, char * * argv)
           }
         }
       }
-
 
       ofs.close();
 

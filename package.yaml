@@ -43,7 +43,6 @@ executables:
     main:                main.cpp
     source-dirs: src/cpp
     c-sources:
-    - src/cpp/argument_parser.cpp
     - src/cpp/interpreter.cpp
     - src/cpp/haskell_facade.cpp
     - src/cpp/ncurses_display.cpp
