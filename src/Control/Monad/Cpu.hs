@@ -49,7 +49,7 @@ data CpuState w = CpuState
 	, cpuFlags :: V.Vector Bool
 	, cpuRam   :: V.Vector w
 	, cpuPc    :: Word
-	} deriving (Show)
+	} deriving (Show, Eq)
 
 -- | 'Cpu' monad with registers, flags, ram, and a program counter.
 -- 'Cpu' is designed with emulating simple instruction sets and thus is more like
