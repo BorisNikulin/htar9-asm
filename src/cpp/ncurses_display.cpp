@@ -4,18 +4,30 @@
 #include <iostream>
 #include <cstdarg>
 
+/**
+ * Construct the display, init ncurses, setup windows
+ *
+ * @param env Pointer to Interpreter environment - display will take
+ * ownership of the object
+ */
+
 NCursesDisplay::NCursesDisplay(std::unique_ptr<Interpreter> env) : env(std::move(env))
 {
   initializeCurses();
 
   getmaxyx(stdscr, maxY, maxX);
 
+  // Windows are horizontally centered
   statusWin = newwin(statusHeight, statusWidth, 1, maxX / 2 - statusWidth / 2);
 
   msgWin = newwin(msgHeight, msgWidth, 16, maxX / 2 - msgWidth / 2);
 
   consoleWin = newwin(consoleHeight, consoleWidth, 23, maxX / 2 - consoleWidth / 2);
 }
+
+/**
+ * Destructor - kill windows and shutdown ncurses
+ */
 
 NCursesDisplay::~NCursesDisplay()
 {
@@ -27,13 +39,22 @@ NCursesDisplay::~NCursesDisplay()
   endCurses();
 }
 
+/**
+ * Start task loop for user input
+ */
+
 void NCursesDisplay::start()
 {
+  // Signal to stop looping for input
   bool done = false;
 
-  mvprintw(0, 0, "Usage: \nPress q to quit.\nPress s to step forward one instruction.\n\
-Press i to open a command console for more complex commands.\nType 'exit' to \
-close console.\n\nPress any key to continue.");
+  // Print usage, pause for one key, clear screen, draw initial
+  // status window
+
+  mvprintw(0, 0, "Usage: \n\nPress q to quit.\nPress s to step forward one\
+instruction.\nPress i to open a command console for more complex commands.\
+\nUse 'setm address value' to set memory values.\nUse 'readm address' to read \
+memory values.\nType 'exit' to close console.\n\nPress any key to continue.");
 
   getch();
 
@@ -41,33 +62,43 @@ close console.\n\nPress any key to continue.");
 
   updateStatus();
 
+  // Loop for input
+
   while(!done)
   {
     int key = getch();
     switch(key)
     {
+      // Quit
       case 'q':
         done = true;
         break;
+      // Step
       case 's':
         stepAndUpdate();
         break;
+
+      // Input (pseudo-console mode)
       case 'i':
+        // Set ncurses mode to line-buffered, echo, show cursor
         setCursesMode(true);
 
         while(true)
         {
-          wclear(consoleWin);
-          wmove(consoleWin, 1, 1);
-          wprintw(consoleWin, "$ > ");
+          wclear(consoleWin); // clear the previous command
+          wmove(consoleWin, 1, 1); // move cursor to origin
+          wprintw(consoleWin, "$ > "); // print prompt
 
           refresh();
 
+          // buffer for input
           char str[50];
-          wgetnstr(consoleWin, str, 50);
+          wgetnstr(consoleWin, str, 50); // block for string input (line-buffered)
 
+          // convert raw input to std::string
           std::string input(str);
 
+          // Close console
           if(input == "exit")
           {
             break;
@@ -75,6 +106,7 @@ close console.\n\nPress any key to continue.");
           else
           {
             std::size_t idx;
+            // read memory
             if((idx = input.find("readm")) != std::string::npos)
             {
               std::size_t addr = strtol(str + 5, nullptr, 10);
@@ -82,6 +114,7 @@ close console.\n\nPress any key to continue.");
 
               showMsg("memory address %u has value %u\n", addr, val);
             }
+            // set memory
             else if((idx = input.find("setm")) != std::string::npos)
             {
               char * arg1ptr;
@@ -97,6 +130,8 @@ close console.\n\nPress any key to continue.");
             }
           }
         }
+
+        // return to normal ncurses operation, clear console
         setCursesMode(false);
         wclear(consoleWin);
 
@@ -105,17 +140,28 @@ close console.\n\nPress any key to continue.");
 
         updateStatus();
         break;
+      // Reset PC
       case 'r':
         env->resetPC();
         updateStatus();
-        terminated = false;
+        wclear(msgWin);
+        refresh();
+        wrefresh(msgWin);
+        terminated = false; // program no longer at end
         break;
     }
   }
 }
 
+/**
+ * Execute ct instructions and update status window
+ *
+ * @param ct Number of instructions to execute (default 1)
+ */
+
 void NCursesDisplay::stepAndUpdate(int ct)
 {
+  // Do nothing if program is at its end
   if(terminated)
   {
     return;
@@ -123,23 +169,28 @@ void NCursesDisplay::stepAndUpdate(int ct)
 
   try
   {
+    // execute ct instructions
     for(; ct > 0; ct--)
     {
       env->executeNext();
     }
+    // update status window once
     updateStatus();
   }
+  // Interpreter signals program completion with an exception
   catch(Interpreter::DoneInterrupt e)
   {
     showMsg("Program terminated: reload? (y/n)\n");
     int response = getch();
     switch(response)
     {
+      // reset
       case 'y':
         env->resetPC();
         updateStatus();
         terminated = false;
         break;
+      // do nothing - still allow terminal interaction
       default:
         terminated = true;
         showMsg("Running suspended until PC reset ('r').");
@@ -147,6 +198,10 @@ void NCursesDisplay::stepAndUpdate(int ct)
     }
   }
 }
+
+/**
+ * Update and redraw the status window
+ */
 
 void NCursesDisplay::updateStatus()
 {
@@ -165,10 +220,20 @@ void NCursesDisplay::updateStatus()
   wrefresh(statusWin);
 }
 
+/**
+ * printf-like function to show message in the message window
+ *
+ * @param msg     Format string of message
+ * @param VARARGS Variables for format specifier values
+ */
+
 void NCursesDisplay::showMsg(std::string msg, ...)
 {
+  // clear message
   wclear(msgWin);
 
+  // use the v-flavor of snprintf to generate the string,
+  // as ncurses does not have v-variants of its print functions
   char vbuffer[msg.size() + 1];
   va_list arglist;
 
@@ -176,6 +241,7 @@ void NCursesDisplay::showMsg(std::string msg, ...)
 
   vsnprintf(vbuffer, msg.size() + 1, msg.c_str(), arglist);
 
+  // print generated string
   mvwprintw(msgWin, 1, 1, vbuffer);
 
   va_end(arglist);
@@ -186,6 +252,10 @@ void NCursesDisplay::showMsg(std::string msg, ...)
   wrefresh(msgWin);
 }
 
+/**
+ * Setup ncurses environment - raw input mode, no echo, no cursor, keypad
+ */
+
 void NCursesDisplay::initializeCurses()
 {
   if(initscr() == NULL)
@@ -193,7 +263,7 @@ void NCursesDisplay::initializeCurses()
     throw std::runtime_error("Failed to initialize ncurses.");
   }
 
-  if(cbreak() == ERR || noecho() == ERR || curs_set(0) == ERR
+  if(raw() == ERR || noecho() == ERR || curs_set(0) == ERR
     || keypad(stdscr, true) == ERR)
   {
     endCurses();
@@ -201,17 +271,25 @@ void NCursesDisplay::initializeCurses()
   }
 }
 
+/**
+ * Sets ncurses to either emulate a console (echo, line-buffering,
+ *  cursor) or operate normally (no echo, raw input, no cursor)
+ *
+ * @param  console true to emulate console, else false
+ * @return         previous curses mode
+ */
+
 bool NCursesDisplay::setCursesMode(bool console)
 {
   if(console)
   {
-    nocbreak();
+    noraw();
     echo();
     curs_set(1);
   }
   else
   {
-    cbreak();
+    raw();
     noecho();
     curs_set(0);
   }
@@ -220,6 +298,10 @@ bool NCursesDisplay::setCursesMode(bool console)
   cursesMode = console;
   return modeTemp;
 }
+
+/**
+ * Shutdown ncurses to restore terminal state
+ */
 
 void NCursesDisplay::endCurses()
 {
