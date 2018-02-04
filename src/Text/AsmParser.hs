@@ -100,7 +100,7 @@ pInst = do
 		pAnd = ts "and" >> And <$> pRegImm
 		pLshft = ts "lshft" >> Lshft <$> pRegImm
 		pRshft = ts "rshft" >> Rshft <$> pRegImm
-		pBcs = ts "bch" >> Bcs <$> pJump
+		pBcs = ts "bcs" >> Bcs <$> pJump
 		pBa  = ts "ba"  >> Ba  <$> pJump
 
 pInstLabel :: Parser Inst
