@@ -1,6 +1,6 @@
 {-# Language MultiWayIf#-}
 
-module Assembler.AsmTranslator
+module Text.AsmTranslator
 	( -- * Translation functions
 	  translateAsm
 	, translateAsms

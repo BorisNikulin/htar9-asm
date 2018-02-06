@@ -2,7 +2,7 @@ module Foreign.CAssembler
 	(cAssemble) where
 
 import Data.Void
-import Assembler.AsmTranslator
+import Text.AsmTranslator
 import Text.AsmParser
 import System.IO.Unsafe
 import Data.Either
@@ -19,14 +19,14 @@ data AsmResultStruct = AsmResultStruct Int CString
 type AsmResult = Ptr AsmResultStruct
 
 instance Storable AsmResultStruct where
-    sizeOf _ = sizeOf (undefined :: Int) + sizeOf (undefined :: CString)
-    peek ptr = do
-        status 	<- peekByteOff ptr 0
-        str 	<- peekByteOff ptr 8
-        return $ AsmResultStruct status str
-    poke ptr (AsmResultStruct status str) = do
-        pokeByteOff ptr 0 status
-        pokeByteOff ptr 8 str
+	sizeOf _ = sizeOf (undefined :: Int) + sizeOf (undefined :: CString)
+	peek ptr = do
+		status  <- peekByteOff ptr 0
+		str     <- peekByteOff ptr 8
+		return $ AsmResultStruct status str
+	poke ptr (AsmResultStruct status str) = do
+		pokeByteOff ptr 0 status
+		pokeByteOff ptr 8 str
 
 foreign export ccall cAssemble :: CString -> CString -> IO AsmResult
 

@@ -41,7 +41,7 @@ instance (Integral a, Serial m a) => Serial m (N a) where
 regs = cpuRegs defState
 ram  = cpuRam  defState
 
-defState = CpuState [255,1,8,64,100,56,250,0] (V.singleton False) (V.replicate 256 0 // [(0, 77)]) 0
+defState = CpuState [255,1,8,64,100,56,254,0] (V.singleton False) (V.replicate 256 0 // [(0, 77)]) 0
 
 tests = testGroup "Control.Monad.HtarCpu"
 	[ testCase "mv" $
@@ -66,8 +66,8 @@ tests = testGroup "Control.Monad.HtarCpu"
 		\x ->
 			let Right s = runHCpuWith defState [Mv $ Reg 6, Add $ Imm x, Fin]
 			in s == defState
-			{ cpuRegs = regs // [(0, 250 + x)]
-			, cpuFlags = [x > 255 - 250]
+			{ cpuRegs = regs // [(0, 254 + x)]
+			, cpuFlags = [x > 255 - 254]
 			, cpuPc = 3
 			}
 	, testCase "sub" $
