@@ -24,6 +24,8 @@ dependencies:
 - megaparsec >= 6 && < 7
 - mtl >= 2 && < 3
 - containers < 1
+- optparse-applicative < 1
+- filepath >= 1 && < 2
 - microlens-platform < 1
 - vector < 1
 - primitive < 1
@@ -41,7 +43,7 @@ library:
 executables:
   htar9-asm-exe:
     main:                main.cpp
-    source-dirs: src/cpp
+    source-dirs:         src/cpp
     c-sources:
     - src/cpp/interpreter.cpp
     - src/cpp/haskell_facade.cpp
@@ -53,6 +55,15 @@ executables:
     extra-libraries:
       - stdc++
       - ncurses
+    dependencies:
+    - htar9-asm
+  htar9-asm-hs-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
     dependencies:
     - htar9-asm
 
