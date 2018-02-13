@@ -51,7 +51,7 @@ void NCursesDisplay::start()
   // Print usage, pause for one key, clear screen, draw initial
   // status window
 
-  mvprintw(0, 0, "Usage: \n\nPress q to quit.\nPress s to step forward one\
+  mvprintw(0, 0, "Usage: \n\nPress q to quit.\nPress s to step forward one \
 instruction.\nPress i to open a command console for more complex commands.\
 \nUse 'setm address value' to set memory values.\nUse 'readm address' to read \
 memory values.\nType 'exit' to close console.\n\nPress any key to continue.");

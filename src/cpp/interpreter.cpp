@@ -271,17 +271,13 @@ void Interpreter::executeInsn(Interpreter::Instruction insn)
       case 1:
         // mask to look at the msb of each word
         {
-          word mask = 0b10000000;
-          word firstOp = registers[ARITHMETIC_REGISTER] & mask;
-          word secondOp = val & mask;
+          word result = registers[ARITHMETIC_REGISTER] + val;
 
           lastInsn << "add " << operandStr.str();
-          registers[ARITHMETIC_REGISTER] += val;
+          registers[ARITHMETIC_REGISTER] = result & 0b1111'1111;
 
-          word result = registers[ARITHMETIC_REGISTER] & mask;
-
-          // infer whether there was a carry out generated or not based on msbs
-          s = (((firstOp & secondOp) != 0) || ((firstOp ^ secondOp) && !(result)));
+          // carry-out is bit 9 of the result - flip this
+          s = !(result & 0b1'0000'0000);
         }
         break;
       // sub
@@ -294,7 +290,7 @@ void Interpreter::executeInsn(Interpreter::Instruction insn)
       case 3:
         lastInsn << "and " << operandStr.str();
         registers[ARITHMETIC_REGISTER] &= val;
-        s = (registers[ARITHMETIC_REGISTER] != 0);
+        s = (registers[ARITHMETIC_REGISTER] == 0);
         break;
       // lshft
       case 4:
