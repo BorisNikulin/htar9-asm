@@ -107,6 +107,7 @@ data Inst = Mv Reg
 		  | Str Reg
 		  | Ld Reg
 		  | Fin
+		  | Reset
 		  | Add RegImm
 		  | Sub RegImm
 		  | And RegImm

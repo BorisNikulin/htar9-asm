@@ -149,9 +149,11 @@ evalNext = do
 	let inst = insts V.! (fromIntegral pc)
 	evalInst inst
 
+-- TODO error checking
 evalInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => Inst -> m ()
-evalInst Fin  = modifyPc (+1) >> return ()
-evalInst inst = evalInst' inst >> evalNext
+evalInst Fin   = modifyPc (+1)
+evalInst Reset = setPc 0
+evalInst inst  = evalInst' inst >> evalNext
 	where
 		evalInst' :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => Inst -> m ()
 		evalInst' (Mv  r) = mv r
@@ -164,4 +166,3 @@ evalInst inst = evalInst' inst >> evalNext
 		evalInst' (Rshft o) = rshft o
 		evalInst' (Bcs j@(JOffset _)) = bcs j
 		evalInst' (Ba  j@(JOffset _)) = ba  j
-
