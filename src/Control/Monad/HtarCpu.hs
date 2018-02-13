@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving
 	, FlexibleContexts
+	, PatternSynonyms
 	#-}
 
 module Control.Monad.HtarCpu
@@ -59,23 +60,21 @@ runHCpu = runHCpuWith defState
 			}
 
 mv :: MonadCpu Word8 m => Reg -> m ()
-mv (Reg r) = do
-	if r == 0
-		then setReg 0 0
-		else do
-			x <- getReg (fromIntegral r)
-			setReg 0 x
+mv (R r) = do
+	x <- getReg 0
+	setReg (fromIntegral r) x
+	setReg 0 0
 	modifyPc (+1)
 
 str :: MonadCpu Word8 m => Reg -> m ()
-str (Reg r) = do
+str (R r) = do
 	i <- getReg (fromIntegral r)
 	x <- getReg 0
 	setRam (fromIntegral i) x
 	modifyPc (+1)
 
 ld :: MonadCpu Word8 m => Reg -> m ()
-ld (Reg r) = do
+ld (R r) = do
 	i <- getReg (fromIntegral r)
 	x <- getRam (fromIntegral i)
 	setReg 0 x
@@ -87,37 +86,37 @@ binOp :: MonadCpu Word8 m => (Word8 -> Word8 -> Word8) -> RegImm -> m ()
 binOp op v = do
 	x <- getReg 0
 	y <- case v of
-		(Register (Reg r)) -> getReg (fromIntegral r)
-		(Imm x)            -> return x
+		RegImmR r -> getReg (fromIntegral r)
+		RegImmI x -> return x
 	setReg 0 (x `op` y)
 	modifyPc (+1)
 
 add :: MonadCpu Word8 m => RegImm -> m ()
 add v = do
 	x <- case v of
-		(Register (Reg r)) -> getReg (fromIntegral r)
-		(Imm x)            -> return x
+		(RegImmR r) -> getReg (fromIntegral r)
+		(RegImmI x) -> return x
 	y <- getReg 0
 	let res = x + y
 	setReg 0 res
-	if res < (max x y)
-		then setFlag 0 True
-		else setFlag 0 False
+	if res < (max x y) -- if overflow
+		then setFlag 0 False
+		else setFlag 0 True
 	modifyPc (+1)
 
 sub :: MonadCpu Word8 m => RegImm -> m ()
-sub y = binOp (-) y >> setConditionIfRegA (== 0)
+sub y = binOp (-) y >> setConditionIfRegA (/= 0)
 
 and :: MonadCpu Word8 m => RegImm -> m ()
 and y = binOp (.&.) y >> setConditionIfRegA (== 0)
 
 lshft :: MonadCpu Word8 m => RegImm -> m ()
 lshft y = binOp (\x y -> unsafeShiftL x (fromIntegral y)) y
-	>> setConditionIfRegA (== 0)
+	>> setConditionIfRegA (/= 0)
 
 rshft :: MonadCpu Word8 m => RegImm -> m ()
 rshft y = binOp (\x y -> unsafeShiftR x (fromIntegral y)) y
-	>> setConditionIfRegA (== 0)
+	>> setConditionIfRegA (/= 0)
 
 branchIf :: MonadCpu Word8 m => Bool -> Int -> m ()
 branchIf b x = do
@@ -129,12 +128,12 @@ branchIf b x = do
 			modifyPc (+1)
 
 bcs :: MonadCpu Word8 m => Jump -> m ()
-bcs (JumpOffset x) = do
+bcs (JOffset x) = do
 	flag <- getFlag 0
 	branchIf flag x
 
 ba :: MonadCpu Word8 m => Jump -> m ()
-ba (JumpOffset x) = branchIf True x
+ba (JOffset x) = branchIf True x
 
 setConditionIfRegA :: MonadCpu Word8 m => (Word8 -> Bool) -> m ()
 setConditionIfRegA p = do
@@ -163,6 +162,6 @@ evalInst inst = evalInst' inst >> evalNext
 		evalInst' (And o) = and o
 		evalInst' (Lshft o) = lshft o
 		evalInst' (Rshft o) = rshft o
-		evalInst' (Bcs j@(JumpOffset _)) = bcs j
-		evalInst' (Ba  j@(JumpOffset _)) = ba  j
+		evalInst' (Bcs j@(JOffset _)) = bcs j
+		evalInst' (Ba  j@(JOffset _)) = ba  j
 

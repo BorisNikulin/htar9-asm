@@ -80,4 +80,5 @@ tests:
     - tasty
     - tasty-hunit
     - tasty-smallcheck
+    - tasty-golden
     - smallcheck

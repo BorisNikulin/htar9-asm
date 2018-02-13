@@ -56,32 +56,32 @@ pReg = (symbol "r" <?> "register") *> (pRegNum <|> pRegA)
 		pRegNum = do
 			r <- integer
 			if r >= 0 && r <= 7
-				then return $ Reg r
+				then return $ mkReg r
 				else fail $ "register must between 0 and 7"
 		pRegA = do
 			symbol "a"
-			return $ Reg 0
+			return $ mkReg 0
 
 pRegImm :: Parser RegImm
-pRegImm = (Register <$> pReg) <|> pUImm <?> "register or unsigned immediate"
+pRegImm = (mkRegister <$> pReg) <|> pUImm <?> "register or unsigned immediate"
 	where
 		pUImm = do
 			imm <- integer
 			if imm >= 0 && imm <= 55
-				then return $ Imm imm
+				then return $ mkImmediate imm
 				else fail "unsigned imm needs to be between 0 and 55"
 
 pIdent :: Parser Ident
 pIdent = lexeme $ (:) <$> letterChar <*> many alphaNumChar
 
 pJump :: Parser Jump
-pJump = pJumpOffset <|> (JumpLabel <$> getPosition <*> pIdent) <?> "label or signed immediate"
+pJump = pJumpOffset <|> (mkJumpLabel <$> getPosition <*> pIdent) <?> "label or signed immediate"
 	where
 		pJumpOffset = do
 			-- TODO how to not parse spaces after a sign (lookAhead digitChar?) (empty seemed to not work)
 			imm <- L.signed sc integer
 			if imm >= -31 && imm <= 32
-				then return $ JumpOffset imm
+				then return $ mkJumpOffset imm
 				else fail $ "unsigned imm nedds to be between -31 and +32"
 
 pInst :: Parser Inst

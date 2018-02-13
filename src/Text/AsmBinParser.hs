@@ -19,24 +19,24 @@ readRegImm s = do
 	num <- readBin s
 	if num >= 0 && num <= 63
 		then if num >= (63 - 7)
-			then Just . Register $ Reg (63 - num)
-			else Just $ Imm num
+			then Just $ mkRegister (63 - num)
+			else Just $ mkImmediate num
 		else Nothing
 
 readReg :: String -> Maybe Reg
 readReg s = do
 	regImm <- readRegImm ("111" ++ s)
 	case regImm of
-		Register r -> Just r
-		Imm _      -> Nothing
+		RegImmR r -> Just $ mkReg r
+		RegImmI _ -> Nothing
 
 readJump :: String -> Maybe Jump
 readJump s = do
 	num <- readBin s
 	if num >= 0 && num <= 63
-		then if num <= 31
-			then Just $ JumpOffset num
-			else Just $ JumpOffset (num - 64)
+		then Just . mkJumpOffset $ if num <= 31
+			then num
+			else (num - 64)
 		else Nothing
 
 pBin :: Parser Inst
