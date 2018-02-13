@@ -163,10 +163,14 @@ void Interpreter::executeInsn(Interpreter::Instruction insn)
         case 0:
           lastInsn << "fin";
           throw DoneInterrupt();
+        // reset
+        case 1:
+          lastInsn << "reset";
+          resetPC();
+          break;
         default:
           throw UnrecognizedInstruction();
       }
-      pc++;
     }
     // single-register insns
     else

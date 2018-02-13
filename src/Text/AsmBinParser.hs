@@ -58,7 +58,9 @@ pBin = do
 			"000" -> Mv  <$> readReg low
 			"010" -> Str <$> readReg low
 			"011" -> Ld  <$> readReg low
-			"111" -> Just Fin
+			"111" -> case low of
+                                "000" -> Just Fin
+                                "001" -> Just Reset
 
 	case maybeInst of
 		Just a -> return a

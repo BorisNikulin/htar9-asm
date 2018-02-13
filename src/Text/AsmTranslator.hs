@@ -97,6 +97,7 @@ translateAsm _ (_, (Mv  r))   = Right . tlb $ "000000" <> tReg r
 translateAsm _ (_, (Str r))   = Right . tlb $ "000010" <> tReg r
 translateAsm _ (_, (Ld  r))   = Right . tlb $ "000011" <> tReg r
 translateAsm _ (_, (Fin))     = Right . tlb $ "000111000"
+translateAsm _ (_, (Reset))   = Right . tlb $ "000111001"
 translateAsm _ (_, (Add o))   = Right . tlb $ "001" <> tRegImm o
 translateAsm _ (_, (Sub o))   = Right . tlb $ "010" <> tRegImm o
 translateAsm _ (_, (And o))   = Right . tlb $ "011" <> tRegImm o

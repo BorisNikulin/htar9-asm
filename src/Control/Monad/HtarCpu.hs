@@ -152,6 +152,7 @@ evalNext = do
 
 evalInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => Inst -> m ()
 evalInst Fin  = modifyPc (+1) >> return ()
+evalInst Reset = setPc 0 >> return ()
 evalInst inst = evalInst' inst >> evalNext
 	where
 		evalInst' :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => Inst -> m ()
@@ -165,4 +166,3 @@ evalInst inst = evalInst' inst >> evalNext
 		evalInst' (Rshft o) = rshft o
 		evalInst' (Bcs j@(JumpOffset _)) = bcs j
 		evalInst' (Ba  j@(JumpOffset _)) = ba  j
-
