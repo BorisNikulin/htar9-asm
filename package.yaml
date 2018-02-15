@@ -7,7 +7,7 @@ maintainer:          "NikulinBE@gmail.com"
 copyright:           "2018 Boris Nikulin"
 
 extra-source-files:
-- README.md
+    - README.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -19,72 +19,82 @@ extra-source-files:
 description:         Please see the README on Github at <https://github.com/BorisNikulin/htar9-asm#readme>
 
 dependencies:
-- base >= 4.7 && < 5
-- bytestring < 1
-- megaparsec >= 6 && < 7
-- mtl >= 2 && < 3
-- brick < 1
-- containers < 1
-- optparse-applicative < 1
-- filepath >= 1 && < 2
-- microlens-platform < 1
-- vector < 1
-- primitive < 1
-- void
+    - base >= 4.7 && < 5
+    - bytestring < 1
+    - megaparsec >= 6 && < 7
+    - mtl >= 2 && < 3
+    - brick < 1
+    - containers < 1
+    - optparse-applicative < 1
+    - filepath >= 1 && < 2
+    - microlens-platform < 1
+    - vector < 1
+    - primitive < 1
+    - void
 
 default-extensions:
-- OverloadedStrings
+    - OverloadedStrings
 
 ghc-options:
-- -Wall
-- -Wcompat
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
-- -Wredundant-constraints
-- -fno-warn-tabs
+    - -fno-warn-tabs
+
+cc-options:
+    - -std=c++14
 
 library:
-  source-dirs: src
+    source-dirs: src
 
 executables:
-  htar9-asm-exe:
-    main:                main.cpp
-    source-dirs:         src/cpp
-    c-sources:
-    - src/cpp/interpreter.cpp
-    - src/cpp/haskell_facade.cpp
-    - src/cpp/ncurses_display.cpp
-
-    ghc-options:
-    - -threaded
-    - -no-hs-main
-    extra-libraries:
-      - stdc++
-      - ncurses
-    dependencies:
-    - htar9-asm
-  htar9-asm-hs-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - htar9-asm
+    htar9-asm-exe:
+        main:                main.cpp
+        source-dirs:         src/cpp
+        c-sources:
+            - src/cpp/interpreter.cpp
+            - src/cpp/haskell_facade.cpp
+            - src/cpp/ncurses_display.cpp
+        ghc-options:
+            - -threaded
+            - -no-hs-main
+            - -Wall
+            - -Wcompat
+            - -Wincomplete-record-updates
+            - -Wincomplete-uni-patterns
+            - -Wredundant-constraints
+            - -fno-warn-tabs
+        extra-libraries:
+            - stdc++
+            - ncurses
+        dependencies:
+            - htar9-asm
+    htar9-asm-hs-exe:
+        main:                Main.hs
+        source-dirs:         app
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N
+            - -Wall
+            - -Wcompat
+            - -Wincomplete-record-updates
+            - -Wincomplete-uni-patterns
+            - -Wredundant-constraints
+            - -fno-warn-tabs
+        dependencies:
+            - htar9-asm
 
 tests:
-  htar9-asm-test:
-    main:                Main.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - htar9-asm
-    - tasty
-    - tasty-hunit
-    - tasty-smallcheck
-    - tasty-golden
-    - smallcheck
+    htar9-asm-test:
+        main:                Main.hs
+        source-dirs:         test
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N
+            - -fno-warn-tabs
+        dependencies:
+            - tasty
+            - tasty-hunit
+            - tasty-smallcheck
+            - tasty-golden
+            - smallcheck
+            - htar9-asm

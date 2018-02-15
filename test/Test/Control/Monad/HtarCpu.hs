@@ -29,7 +29,7 @@ import Numeric.Natural
 
 -- TODO mayeb also a tasty option for this depth?
 instance Monad m => Serial m Word8 where
-	series = localDepth (*8) $ (fromIntegral :: Natural -> Word8) <$> series
+	series = localDepth (*4) $ (fromIntegral :: Natural -> Word8) <$> series
 
 -- TODO make tasty options for Reg and Imm depth and probably default to max but /shrug
 instance Monad m => Serial m Reg where
@@ -163,3 +163,4 @@ emulTest getResource =
 			resHigh = fromIntegral $ shiftR (resWord .&. high8Mask) 8
 			resLow  = fromIntegral $ resWord .&. low8Mask
 		return $ V.slice 4 2 (cpuRam s) == [resHigh, resLow]
+	]

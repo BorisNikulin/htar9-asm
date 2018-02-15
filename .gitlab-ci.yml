@@ -1,0 +1,77 @@
+image: fpco/stack-build:lts-10.3
+
+variables:
+    STACK_ROOT: "${CI_PROJECT_DIR}/.stack"
+
+before_script:
+    - stack setup --system-ghc
+
+stages:
+    - test_build
+    - post_build_test
+    - deploy
+
+test:
+    stage: test_build
+    script:
+        # coverage report goes in .stack-work which is cached
+        # so no need to artifact it for pages job
+        - stack test --system-ghc --coverage
+    coverage: '/(\d+)\% expressions used/'
+    cache:
+        key: test
+        paths:
+            - .stack
+            - .stack-work
+
+build-cpp:
+    stage: test_build
+    script:
+        - mkdir build
+        - stack install htar9-asm:htar9-asm-exe --system-ghc --local-bin-path build
+    cache:
+        key: build
+        paths:
+            - .stack
+            - .stack-work
+    artifacts:
+        paths:
+            - build/
+        expire_in: 1 week
+
+build-hs:
+    stage: test_build
+    script:
+        - mkdir build
+        - stack install htar9-asm:htar9-asm-hs-exe --system-ghc --local-bin-path build
+    cache:
+        key: build
+        paths:
+            - .stack
+            - .stack-work
+    artifacts:
+        paths:
+            - build/
+        expire_in: 1 week
+
+pages:
+    stage: deploy
+    script:
+        # TODO: get haddock working on haddocking my code not all but my code
+        #- stack haddock htar9-asm --haddock-arguments "--odir=${CI_PROJECT_DIR}/public/docs"
+        #- stack ide targets --system-ghc
+        #- echo ${CI_COMMIT_REF_SLUG}
+        - mkdir -p ./public/coverage
+        - cp -r $(stack path --system-ghc --local-hpc-root)/* ./public/coverage
+    only:
+        refs:
+            - master
+    cache:
+        key: test
+        policy: pull
+        paths:
+            - .stack
+            - .stack-work
+    artifacts:
+        paths:
+            - public/

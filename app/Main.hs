@@ -46,7 +46,7 @@ assembleFile AssembleOptions{..} h = do
 		Right (insts, table) ->
 			case translateAsms table insts of
 				-- might want a catchIOError but that should only happen
-				-- on a device full error  which at that point the user
+				-- on a device full error which at that point the user
 				-- has more problems than this not running :D
 				Right outputList -> BL.writeFile optOutputFile output
 					where
