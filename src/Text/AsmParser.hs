@@ -56,11 +56,9 @@ pReg = (symbol "r" <?> "register") *> (pRegNum <|> pRegA)
 		pRegNum = do
 			r <- integer
 			if r >= 0 && r <= 7
-				then return $ mkReg r
+				then return $ mkReg (r :: Word)
 				else fail $ "register must between 0 and 7"
-		pRegA = do
-			symbol "a"
-			return $ mkReg 0
+		pRegA = symbol "a" *> return (mkReg (0 :: Word))
 
 pRegImm :: Parser RegImm
 pRegImm = (mkRegister <$> pReg) <|> pUImm <?> "register or unsigned immediate"
@@ -68,7 +66,7 @@ pRegImm = (mkRegister <$> pReg) <|> pUImm <?> "register or unsigned immediate"
 		pUImm = do
 			imm <- integer
 			if imm >= 0 && imm <= 55
-				then return $ mkImmediate imm
+				then return $ mkImmediate (imm :: Word)
 				else fail "unsigned imm needs to be between 0 and 55"
 
 pIdent :: Parser Ident
@@ -81,7 +79,7 @@ pJump = pJumpOffset <|> (mkJumpLabel <$> getPosition <*> pIdent) <?> "label or s
 			-- TODO how to not parse spaces after a sign (lookAhead digitChar?) (empty seemed to not work)
 			imm <- L.signed sc integer
 			if imm >= -31 && imm <= 32
-				then return $ mkJumpOffset imm
+				then return $ mkJumpOffset (imm :: Int)
 				else fail $ "unsigned imm nedds to be between -31 and +32"
 
 pInst :: Parser Inst
@@ -110,7 +108,7 @@ pInstLabel = ((try pLabel) *> pInst)
 	where
 		pLabel = do
 			ident <- pIdent
-			symbol ":"
+			_ <- symbol ":"
 			ss <- get
 			if ident `M.member` (ss^.symbolTable)
 				then fail "duplicate label"

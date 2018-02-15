@@ -23,6 +23,7 @@ dependencies:
 - bytestring < 1
 - megaparsec >= 6 && < 7
 - mtl >= 2 && < 3
+- brick < 1
 - containers < 1
 - optparse-applicative < 1
 - filepath >= 1 && < 2
@@ -35,6 +36,11 @@ default-extensions:
 - OverloadedStrings
 
 ghc-options:
+- -Wall
+- -Wcompat
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wredundant-constraints
 - -fno-warn-tabs
 
 library:

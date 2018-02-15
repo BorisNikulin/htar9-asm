@@ -25,7 +25,6 @@ module Data.Asm
 	) where
 
 import Data.Word
-import Data.Int
 import Text.Megaparsec.Pos (SourcePos)
 
 -- | Register specified by a number between 0 and 7 with register a being the same as register 0.
@@ -43,6 +42,7 @@ mkReg rIntegral
 		where
 			r = fromIntegral rIntegral
 
+pattern R :: Word8 -> Reg
 pattern R r <- Reg r
 
 newtype Imm = Imm Word8
@@ -59,6 +59,7 @@ mkImm xIntegral
 		where
 			x = fromIntegral xIntegral
 
+pattern I :: Word8 -> Imm
 pattern I x <- Imm x
 
 -- | Regiser or immediate used by many instructions.
@@ -78,7 +79,10 @@ mkRegImmFromReg = Register
 mkRegImmFromImm :: Imm -> RegImm
 mkRegImmFromImm = Immediate
 
+pattern RegImmI :: Word8 -> RegImm
 pattern RegImmI x <- Immediate (Imm x)
+
+pattern RegImmR :: Word8 -> RegImm
 pattern RegImmR r <- Register  (Reg r)
 
 -- | Identifier for labels and jump instructions.
@@ -99,7 +103,10 @@ mkJumpOffset xIntegral
 mkJumpLabel :: SourcePos -> Ident -> Jump
 mkJumpLabel sp l = JumpLabel sp l
 
+pattern JOffset :: Int -> Jump
 pattern JOffset x <- JumpOffset x
+
+pattern JLabel :: SourcePos -> Ident -> Jump
 pattern JLabel sp l <- JumpLabel sp l
 
 -- | All HTAR9 intructions.

@@ -20,12 +20,10 @@ module Control.Monad.Cpu
 	, unsafeRunCpu
 	) where
 
-import Data.Word
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as MV
 import Data.STRef
 import Lens.Micro.Platform
-import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.ST.Strict
 import Control.Monad.Writer
@@ -59,40 +57,40 @@ data CpuState w = CpuState
 newtype Cpu w s a = Cpu { unCpu :: ReaderT (CpuEnv w s) (ST s) a }
 
 thawCpuState :: CpuState w -> (forall s. ST s (CpuEnv w s))
-thawCpuState (CpuState regs flags ram pc) =
+thawCpuState (CpuState theRegs theFlags theRam thePc) =
 	CpuEnv
-	<$> V.thaw regs
-	<*> V.thaw flags
-	<*> V.thaw ram
-	<*> newSTRef pc
+	<$> V.thaw theRegs
+	<*> V.thaw theFlags
+	<*> V.thaw theRam
+	<*> newSTRef thePc
 
 unsafeThawCpuState :: CpuState w -> ST s (CpuEnv w s)
-unsafeThawCpuState (CpuState regs flags ram pc) =
+unsafeThawCpuState (CpuState theRegs theFlags theRam thePc) =
 	CpuEnv
-	<$> V.unsafeThaw regs
-	<*> V.unsafeThaw flags
-	<*> V.unsafeThaw ram
-	<*> newSTRef pc
+	<$> V.unsafeThaw theRegs
+	<*> V.unsafeThaw theFlags
+	<*> V.unsafeThaw theRam
+	<*> newSTRef thePc
 
 freezeCpuEnv :: CpuEnv w s -> ST s (CpuState w)
-freezeCpuEnv (CpuEnv regs flags ram pc) =
+freezeCpuEnv (CpuEnv theRegs theFlags theRam thePc) =
 	CpuState
-	<$> V.freeze regs
-	<*> V.freeze flags
-	<*> V.freeze ram
-	<*> readSTRef pc
+	<$> V.freeze theRegs
+	<*> V.freeze theFlags
+	<*> V.freeze theRam
+	<*> readSTRef thePc
 
 unsafeFreezeCpuEnv :: CpuEnv w s -> ST s (CpuState w)
-unsafeFreezeCpuEnv (CpuEnv regs flags ram pc) =
+unsafeFreezeCpuEnv (CpuEnv theRegs theFlags theRam thePc) =
 	CpuState
-	<$> V.unsafeFreeze regs
-	<*> V.unsafeFreeze flags
-	<*> V.unsafeFreeze ram
-	<*> readSTRef pc
+	<$> V.unsafeFreeze theRegs
+	<*> V.unsafeFreeze theFlags
+	<*> V.unsafeFreeze theRam
+	<*> readSTRef thePc
 
 runCpu' :: forall a w. (forall s. CpuState w -> ST s (CpuEnv w s)) -> (forall s. Cpu w s a) -> CpuState w -> (a, CpuState w)
-runCpu' thaw cpu state = runST $ do
-	cpuEnv <- thaw state
+runCpu' thaw cpu initState = runST $ do
+	cpuEnv <- thaw initState
 	runReaderT readerComp cpuEnv
 	where
 		readerComp :: ReaderT (CpuEnv w s) (ST s) (a, CpuState w)
@@ -187,6 +185,6 @@ instance MonadCpu w m => MonadCpu w (ContT r m)
 -- | Strictly modifies the program counter with the given function.
 modifyPc :: MonadCpu w m => (Word -> Word) -> m ()
 modifyPc f = do
-	pc <- getPc
-	let pc' = f pc
-	pc' `seq` setPc pc'
+	thePc <- getPc
+	let !pc' = f thePc
+	setPc pc'

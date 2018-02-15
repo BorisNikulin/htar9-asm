@@ -7,7 +7,6 @@ import Data.Char (digitToInt)
 import Data.Maybe (listToMaybe)
 import Data.Void
 import Text.Megaparsec
-import Text.Megaparsec.Char
 
 type Parser = Parsec Void String
 
@@ -20,7 +19,7 @@ readRegImm s = do
 	if num >= 0 && num <= 63
 		then if num >= (63 - 7)
 			then Just $ mkRegister (63 - num)
-			else Just $ mkImmediate num
+			else Just $ mkImmediate (num :: Word)
 		else Nothing
 
 readReg :: String -> Maybe Reg
@@ -29,13 +28,14 @@ readReg s = do
 	case regImm of
 		RegImmR r -> Just $ mkReg r
 		RegImmI _ -> Nothing
+		_         -> Nothing
 
 readJump :: String -> Maybe Jump
 readJump s = do
 	num <- readBin s
 	if num >= 0 && num <= 63
 		then Just . mkJumpOffset $ if num <= 31
-			then num
+			then (num :: Int)
 			else (num - 64)
 		else Nothing
 
@@ -59,8 +59,11 @@ pBin = do
 			"010" -> Str <$> readReg low
 			"011" -> Ld  <$> readReg low
 			"111" -> case low of
-                                "000" -> Just Fin
-                                "001" -> Just Reset
+				"000" -> Just Fin
+				"001" -> Just Reset
+				_     -> Nothing
+			_     -> Nothing
+		_     -> Nothing
 
 	case maybeInst of
 		Just a -> return a

@@ -19,7 +19,6 @@ import Prelude hiding (and)
 import Data.Word
 import Data.Bits
 import qualified Data.Vector as V
-import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
 
@@ -42,13 +41,14 @@ runHCpuWith s v
 		&& V.length (cpuFlags s) >= 1
 		&& V.length (cpuRam s) >= 256
 		= case runCpu (runReaderT (runExceptT (unHCpu evalNext)) v) s of
-				((Right _), s) -> Right s
+				((Right _), s') -> Right s'
 				((Left e) , _) -> Left e
 	| otherwise = Left $ InvalidStartingCpuState s
 
 -- | Runs HTAR9 instructions to completion or error.
 -- Only native HTAR9 instructions so
 -- a jump to a label will cause an error.
+runHCpu :: V.Vector Inst -> Either HCpuError (CpuState Word8)
 runHCpu = runHCpuWith defState
 	where
 		defState :: CpuState Word8
@@ -65,6 +65,7 @@ mv (R r) = do
 	setReg (fromIntegral r) x
 	setReg 0 0
 	modifyPc (+1)
+mv _ = error "invalid args"
 
 str :: MonadCpu Word8 m => Reg -> m ()
 str (R r) = do
@@ -72,6 +73,7 @@ str (R r) = do
 	x <- getReg 0
 	setRam (fromIntegral i) x
 	modifyPc (+1)
+str _ = error "invalid args"
 
 ld :: MonadCpu Word8 m => Reg -> m ()
 ld (R r) = do
@@ -79,6 +81,7 @@ ld (R r) = do
 	x <- getRam (fromIntegral i)
 	setReg 0 x
 	modifyPc (+1)
+ld _ = error "invalid args"
 
 -- | Applies the binary opertor on the contents of ra and
 -- the contents of the passed in register in that order.
@@ -87,7 +90,8 @@ binOp op v = do
 	x <- getReg 0
 	y <- case v of
 		RegImmR r -> getReg (fromIntegral r)
-		RegImmI x -> return x
+		RegImmI a -> return a
+		_         -> error "invalid args"
 	setReg 0 (x `op` y)
 	modifyPc (+1)
 
@@ -96,9 +100,11 @@ add v = do
 	x <- case v of
 		(RegImmR r) -> getReg (fromIntegral r)
 		(RegImmI x) -> return x
+		_           -> error "invalid args"
 	y <- getReg 0
 	let res = x + y
 	setReg 0 res
+	-- TODO make this better :D
 	if res < (max x y) -- if overflow
 		then setFlag 0 False
 		else setFlag 0 True
@@ -111,11 +117,11 @@ and :: MonadCpu Word8 m => RegImm -> m ()
 and y = binOp (.&.) y >> setConditionIfRegA (== 0)
 
 lshft :: MonadCpu Word8 m => RegImm -> m ()
-lshft y = binOp (\x y -> unsafeShiftL x (fromIntegral y)) y
+lshft a = binOp (\x y -> unsafeShiftL x (fromIntegral y)) a
 	>> setConditionIfRegA (/= 0)
 
 rshft :: MonadCpu Word8 m => RegImm -> m ()
-rshft y = binOp (\x y -> unsafeShiftR x (fromIntegral y)) y
+rshft a = binOp (\x y -> unsafeShiftR x (fromIntegral y)) a
 	>> setConditionIfRegA (/= 0)
 
 branchIf :: MonadCpu Word8 m => Bool -> Int -> m ()
@@ -131,9 +137,11 @@ bcs :: MonadCpu Word8 m => Jump -> m ()
 bcs (JOffset x) = do
 	flag <- getFlag 0
 	branchIf flag x
+bcs _ = error "invalid args"
 
 ba :: MonadCpu Word8 m => Jump -> m ()
 ba (JOffset x) = branchIf True x
+ba _ = error "invalid args"
 
 setConditionIfRegA :: MonadCpu Word8 m => (Word8 -> Bool) -> m ()
 setConditionIfRegA p = do
@@ -142,7 +150,7 @@ setConditionIfRegA p = do
 		then setFlag 0 True
 		else setFlag 0 False
 
-evalNext :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => m ()
+evalNext :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => m ()
 evalNext = do
 	insts <- ask
 	pc <- getPc
@@ -150,12 +158,12 @@ evalNext = do
 	evalInst inst
 
 -- TODO error checking
-evalInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => Inst -> m ()
+evalInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => Inst -> m ()
 evalInst Fin   = modifyPc (+1)
 evalInst Reset = setPc 0
 evalInst inst  = evalInst' inst >> evalNext
 	where
-		evalInst' :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m) => Inst -> m ()
+		evalInst' :: (MonadCpu Word8 m, MonadError HCpuError m) => Inst -> m ()
 		evalInst' (Mv  r) = mv r
 		evalInst' (Str r) = str r
 		evalInst' (Ld  r) = ld r
@@ -164,5 +172,8 @@ evalInst inst  = evalInst' inst >> evalNext
 		evalInst' (And o) = and o
 		evalInst' (Lshft o) = lshft o
 		evalInst' (Rshft o) = rshft o
-		evalInst' (Bcs j@(JOffset _)) = bcs j
-		evalInst' (Ba  j@(JOffset _)) = ba  j
+		evalInst' (Bcs j@(JOffset _))  = bcs j
+		evalInst' (Bcs   (JLabel _ _)) = getState >>= throwError . InvalidJumpToLabelError
+		evalInst' (Ba  j@(JOffset _))  = ba  j
+		evalInst' (Ba    (JLabel _ _)) = getState >>= throwError . InvalidJumpToLabelError
+		evalInst' _ = error "invalid args"

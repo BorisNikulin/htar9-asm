@@ -16,7 +16,6 @@ import Text.AsmParser (SymbolTable)
 
 import Numeric (showIntAtBase)
 import Data.Char (intToDigit)
-import Data.List (replicate)
 import Data.Semigroup
 import Data.Map.Strict ((!?))
 import qualified Data.ByteString.Char8 as B
@@ -58,6 +57,7 @@ tReg (R r) =  byteString (B.replicate padAmmount '0')
 			| rComp <= 1 -> 2
 			| rComp <= 3 -> 1
 			| otherwise  -> 0
+tReg _ = error "invalid args"
 
 tRegImm :: RegImm -> Builder
 tRegImm (RegImmR r) = "111" <> tReg (mkReg r)
@@ -66,6 +66,7 @@ tRegImm (RegImmI i) =  byteString (B.replicate padAmmount '0')
 	where
 		numStr = B.pack $ showIntAtBase 2 intToDigit i ""
 		padAmmount = 6 - B.length numStr
+tRegImm _ = error "invalid args"
 
 tJumpOffset :: Jump -> Builder
 tJumpOffset (JOffset x) =  byteString (B.replicate padAmmount '0')
@@ -75,6 +76,7 @@ tJumpOffset (JOffset x) =  byteString (B.replicate padAmmount '0')
 			then B.pack $ showIntAtBase 2 intToDigit x ""
 			else B.pack $ showIntAtBase 2 intToDigit (32 + 31 + 1 + x) ""
 		padAmmount = 6 - B.length numStr
+tJumpOffset _ = error "invalid args"
 
 
 calcRelativeOffset :: SymbolTable -> Jump -> Word -> Either LabelError Jump
@@ -85,7 +87,10 @@ calcRelativeOffset t (JLabel sp l) from = case t !? l of
 			then Right $ mkJumpOffset offset
 			else Left $ OffsetError sp l offset
 	Nothing -> Left $ MissingLabelError sp l
+calcRelativeOffset _ _ _ = error "invalid args"
 
+-- | shorter alias for 'toLazyByteString'
+tlb :: Builder -> BL.ByteString
 tlb = toLazyByteString
 
 -- | Takes HTAR9 intructions and neccessary supporting data to
@@ -106,9 +111,10 @@ translateAsm _ (_, (And o))   = Right . tlb $ "011" <> tRegImm o
 translateAsm _ (_, (Lshft o)) = Right . tlb $ "100" <> tRegImm o
 translateAsm _ (_, (Rshft o)) = Right . tlb $ "101" <> tRegImm o
 translateAsm t (i, (Bcs j@(JLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Bcs
-translateAsm t (i, (Bcs j@(JOffset _)))  = Right . tlb $ "110" <> tJumpOffset j
+translateAsm _ (_, (Bcs j@(JOffset _)))  = Right . tlb $ "110" <> tJumpOffset j
 translateAsm t (i, (Ba  j@(JLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
-translateAsm t (i, (Ba  j@(JOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
+translateAsm _ (_, (Ba  j@(JOffset _)))  = Right . tlb $ "111" <> tJumpOffset j
+translateAsm _ _ = error "this should never happen?"
 
 -- | Same as 'translateAsm' but for lists of 'Inst'.
 translateAsms

@@ -1,4 +1,8 @@
-module Text.ArgParser where
+module Text.ArgParser
+	( Options(..)
+	, parseArgs
+	, argParser
+	) where
 
 import Data.Semigroup
 import Options.Applicative

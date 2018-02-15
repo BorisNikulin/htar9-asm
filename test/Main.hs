@@ -15,7 +15,27 @@ import Test.Tasty
 import Test.Tasty.Golden
 import qualified Data.ByteString.Lazy as BL
 
-main = defaultMain topLevelTests
+main = do
+	gTests <- goldenTests
+	defaultMain $ testGroup "Tests"
+		[ Test.Text.AsmParser.tests
+		, Test.Text.AsmBinParser.tests
+		, Test.Text.AsmTranslator.tests
+		, Test.Control.Monad.Cpu.tests
+		, Test.Control.Monad.HtarCpu.tests
+		, gTests
+		]
+
+goldenTests :: IO TestTree
+goldenTests = do
+	file <- readFile "./test/golden/mult.s"
+	let
+		Right (insts, t) = parseAsm "mult.s" file
+		Right bin        = translateAsms t insts
+	
+	return $ testGroup "Golden"
+		[ goldenVsString "mult" "./test/golden/mult" bin
+		]
 
 topLevelTests = testGroup "Tests"
 	[ Test.Text.AsmParser.tests
