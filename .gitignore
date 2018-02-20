@@ -2,3 +2,4 @@
 htar9-asm.cabal
 
 *.swp
+*.gch

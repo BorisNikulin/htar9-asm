@@ -71,9 +71,12 @@ static void parseArgs(int argc, char * * argv, int * flags, char * * outfile,
       {
         // output
         case 'o':
-          *flags |= OUT_FLAG;
-          *outfile = new char[strlen(optarg)];
-          strcpy(*outfile, optarg);
+          {
+            *flags |= OUT_FLAG;
+            std::size_t bufsize = strlen(optarg) + 1;
+            *outfile = new char[bufsize];
+            strncpy(*outfile, optarg, bufsize - 1);
+          }
           break;
         // formatted output
         case 'f':
@@ -100,8 +103,9 @@ static void parseArgs(int argc, char * * argv, int * flags, char * * outfile,
   // remaining non-option arguments
   if(optind < argc)
   {
-    *infile = new char[strlen(argv[optind])];
-    strcpy(*infile, argv[optind]);
+    std::size_t bufsize = strlen(argv[optind]) + 1;
+    *infile = new char[bufsize];
+    strncpy(*infile, argv[optind], bufsize - 1);
   }
   // no remaining args
   else
@@ -173,13 +177,16 @@ int main(int argc, char * * argv)
     // Read file into a C string
     std::unique_ptr<char[]> fileContents = std::move(readFile(infile));
 
+    std::string result;
     int status;
+    {
+      // Init haskell handler
+      HaskellFacade hf(&argc, argv);
 
-    // Init haskell handler
-    HaskellFacade hf(&argc, argv);
-
-    // Punt to Haskell assembler - result is a C string of binary
-    char * result = hf.assembleFile((char *)infile, (char *)fileContents.get(), &status);
+      // Punt to Haskell assembler - result is a C string of binary
+      result = hf.assembleFile((char *)infile,
+        (char *)fileContents.get(), &status);
+    }
 
     delete[] infile;
 
@@ -246,8 +253,9 @@ int main(int argc, char * * argv)
     {
       std::cout << "Starting interpreter." << std::endl;
 
-      NCursesDisplay curses(std::unique_ptr<Interpreter>(new Interpreter(8, 256,
-        result)));
+      CPU::Interpreter inter(CPU::CodeParser()(result));
+
+      ncurses_tui::NCursesDisplay curses(inter);
       curses.start();
 
       return 0;

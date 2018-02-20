@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 class HaskellFacade {
     public:
         struct AsmResult {
@@ -10,5 +12,5 @@ class HaskellFacade {
         HaskellFacade(int * argc, char * * argv);
         ~HaskellFacade();
 
-        char * assembleFile(char * fname, char * fcontents, int * status);
+        std::string assembleFile(char * fname, char * fcontents, int * status);
 };

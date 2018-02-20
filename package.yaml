@@ -83,7 +83,7 @@ executables:
             - htar9-asm
 
 tests:
-    htar9-asm-test:
+    htar9-asm-hs-test:
         main:                Main.hs
         source-dirs:         test
         ghc-options:
@@ -97,4 +97,20 @@ tests:
             - tasty-smallcheck
             - tasty-golden
             - smallcheck
+            - htar9-asm
+
+    htar9-asm-test:
+        main:                test.cpp
+        source-dirs:         test/cpp
+        c-sources:
+        - test/cpp/test.cpp
+        - src/cpp/interpreter.cpp
+        - src/cpp/haskell_facade.cpp
+        - src/cpp/ncurses_display.cpp
+        ghc-options:
+            - -threaded
+            - -fno-warn-tabs
+        extra-libraries:
+            - stdc++
+        dependencies:
             - htar9-asm

@@ -203,3 +203,4 @@ add r5 // put result into ra
 str r1 // *r1 = ra
 
 fin // done
+reset // reset PC to 0

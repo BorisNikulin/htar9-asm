@@ -1,5 +1,4 @@
 #include "haskell_facade.h"
-
 #include "Main_stub.h"
 
 /**
@@ -31,9 +30,15 @@ HaskellFacade::~HaskellFacade()
  * @return           Pointer to C string of machine code
  */
 
-char * HaskellFacade::assembleFile(char * fname, char * fcontents, int * status)
+std::string HaskellFacade::assembleFile(char * fname, char * fcontents,
+  int * status)
 {
-  AsmResult * res = (AsmResult *)cAssemble(fname, fcontents);
-  *status = res->status;
-  return res->str;
+  AsmResult * resStruct = (AsmResult *)cAssemble(fname, fcontents);
+  *status = resStruct->status;
+
+  std::string code = std::string(resStruct->str);
+
+  delete resStruct;
+
+  return code;
 }
