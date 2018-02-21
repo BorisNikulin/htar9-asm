@@ -49,14 +49,16 @@ cc-options:
 
 library:
     source-dirs: src/hs
+    c-sources:
+        - src/cpp/*.cpp
+    include-dirs:
+        - src/cpp/include
 
 executables:
     htar9-asm-exe:
         main:                main.cpp
         source-dirs:         app/cpp
-        include-dirs:        src/cpp/include
         c-sources:
-            - src/cpp/*.cpp
             - app/cpp/*.cpp
 
         ghc-options:
@@ -109,10 +111,6 @@ tests:
     htar9-asm-test:
         main:                test.cpp
         source-dirs:         test/cpp
-        include-dirs:        src/cpp/include
-        c-sources:
-        - test/cpp/test.cpp
-        - src/cpp/*.cpp
         ghc-options:
             - -threaded
             - -fno-warn-tabs

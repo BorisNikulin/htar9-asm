@@ -21,8 +21,7 @@ and r2 // ra = 00001111 & r2, so the lower 4 bits of r2
 mv r2  // store lower 4 bits of comp in r2
 
 // store 32 in r3, the starting memory index of the array
-add 31 // ra = 31
-add 1  // ra = 32
+add 32 // ra = 31
 mv r3  // r3 = 32
 
 // r6 is # matches, starts at 0
@@ -75,10 +74,10 @@ ba arrayLoop // branch to arrayLoop
 // shifts str and increments shift counter for next strLoop
 prepStrLoop:
 
-// left shift str
+// right shift str
 mv ra  // clear ra
 add r1 // ra = r1
-lshft 1 // ra = r1 >> 1
+rshft 1 // ra = r1 >> 1
 mv r1  // r1 = r1 >> 1
 
 // increment shift counter
@@ -97,7 +96,7 @@ mv ra  // ra = 0
 add 4  // ra = 4
 sub r4 // ra = 4 - r4
 
-// if r4 != 4, then ra != 0, cond reg is set
+// if r4 != 5, then ra != 0, cond reg is set
 bcs prepStrLoop // branch to where r1 and r4 are updated
 
 // if r4 == ra, then ra = 0, above branch is skipped
@@ -105,13 +104,11 @@ bcs prepStrLoop // branch to where r1 and r4 are updated
 // either branch back to arrayLoop or to endArrayLoop
 endStrLoop:
 
-// check if array counter is 96, since that means the entire
-// array from mem addresses 32 through 96 have been checked
-add 31 // ra = 31
-add 31 // ra = 31 + 31 = 62
-add 31 // ra = 62 + 31 = 93
-add 3  // ra = 93 +  3 = 96
-sub r3 // ra = 96 - r3
+// check if array counter is 95, since that means the entire
+// array from mem addresses 32 through 95 have been checked
+add 48 // ra = 48
+add 47 // ra = 48 + 47 = 95
+sub r3 // ra = 95 - r3
 
 // if r3 != 96, then need to branch to update r3
 bcs prepArrayLoop
@@ -128,3 +125,4 @@ add r6 // ra = r6, where r6 is # matches
 str r1 // store value in ra at *r1, which is mem location 7
 
 fin // done
+reset // reset PC to 0
