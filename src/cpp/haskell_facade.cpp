@@ -30,10 +30,10 @@ HaskellFacade::~HaskellFacade()
  * @return           Pointer to C string of machine code
  */
 
-std::string HaskellFacade::assembleFile(char * fname, char * fcontents,
-  int * status)
+std::string HaskellFacade::assembleFile(const char * fname, const char *
+  fcontents, int * status)
 {
-  AsmResult * resStruct = (AsmResult *)cAssemble(fname, fcontents);
+  AsmResult * resStruct = (AsmResult *)cAssemble((void *)fname, (void *)fcontents);
   *status = resStruct->status;
 
   std::string code = std::string(resStruct->str);

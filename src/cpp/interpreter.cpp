@@ -379,10 +379,14 @@ namespace CPU {
     return res;
   }
 
+  /* TODO awaiting standard implementation
+
   std::string InterpreterSupervisor::coreDump() const noexcept
   {
-    // TODO awaiting standard implementation
+
   }
+
+  */
 
   /**
    * Sets specified regsiter to the given value

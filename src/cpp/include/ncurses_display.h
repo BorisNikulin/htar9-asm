@@ -1,3 +1,6 @@
+#ifndef NCURSES_DISPLAY_H
+#define NCURSES_DISPLAY_H
+
 #include "interpreter.h"
 
 #include <memory>
@@ -104,3 +107,6 @@ namespace ncurses_tui {
     void runUntilDone();
   };
 }
+
+
+#endif /* end of include guard: NCURSES_DISPLAY_H */

@@ -222,12 +222,19 @@ memory values.\nType 'exit' to close console.\n\nPress any key to continue.");
 
   void NCursesDisplay::stepAndUpdate(int ct)
   {
-    for(; ct > 0; ct--)
-    {
-      step();
+    try {
+      for(; ct > 0; ct--)
+      {
+        step();
+      }
+      // update status window once
+      updateStatus();
     }
-    // update status window once
-    updateStatus();
+    catch(const CPU::Interpreter::InvalidPC & e)
+    {
+      msgWin->clear();
+      msgWin->printw(e.what());
+    }
   }
 
   void NCursesDisplay::step()
@@ -422,25 +429,40 @@ left in an inoperable state.");
         }
 
         long addr = std::stoi(cmdTokens[1], nullptr, 10);
-        word val = disp.controller.getMemory(addr);
+        try {
+          word val = disp.controller.getMemory(addr);
 
-        disp.msgWin->clear();
-        disp.msgWin->printw("memory address %u has value %u\n", addr, val);
+          disp.msgWin->clear();
+          disp.msgWin->printw("Memory address %u has value %u\n", addr, val);
+        }
+        catch(const std::out_of_range & e)
+        {
+          disp.msgWin->printw("Invalid memory address");
+        }
       }
       else if(op.compare("setm") == 0)
       {
         if(cmdTokens.size() != 3)
         {
+          disp.msgWin->clear();
           disp.msgWin->printw("Invalid number of arguments to setm");
           return false;
         }
 
         long addr = std::stoi(cmdTokens[1], nullptr, 10);
         long val = std::stoi(cmdTokens[2], nullptr, 10);
-        disp.controller.setMemory(addr, val);
 
-        disp.msgWin->clear();
-        disp.msgWin->printw("set memory address %u to value %u\n", addr, val);
+        try {
+          disp.controller.setMemory(addr, val);
+
+          disp.msgWin->clear();
+          disp.msgWin->printw("Set memory address %u to value %u\n", addr, val);
+        }
+        catch(const std::out_of_range & e)
+        {
+          disp.msgWin->clear();
+          disp.msgWin->printw("Invalid memory address");
+        }
       }
       else if(op.compare("exit") == 0 || op.compare("quit") == 0 ||
         op.compare("q") == 0)

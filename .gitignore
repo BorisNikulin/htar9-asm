@@ -1,5 +1,6 @@
 .stack-work/
 htar9-asm.cabal
+.gcc-flags.json
 
 *.swp
 *.gch

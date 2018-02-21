@@ -1,4 +1,5 @@
-#pragma once
+#ifndef INTERPRETER_H
+#define INTERPRETER_H
 
 #include <vector>
 #include <string>
@@ -16,19 +17,11 @@ namespace CPU {
   {
     friend class InterpreterSupervisor;
   public:
-    struct InvalidInstruction : public std::exception
-    {
-      const char * what() const throw()
-      {
-        return "Instruction width greater than 9 bits";
-      }
-    };
-
     struct UnrecognizedInstruction : public std::exception
     {
       const char * what() const throw()
       {
-        return "Instruction not implemented";
+        return "Instruction not implemented - machine code is suspect.";
       }
     };
 
@@ -36,7 +29,7 @@ namespace CPU {
     {
       const char * what() const throw()
       {
-        return "Program counter addressed instruction that does not exist";
+        return "Program counter addressed instruction that does not exist.";
       }
     };
 
@@ -157,3 +150,5 @@ namespace CPU {
   };
 
 }
+
+#endif /* end of include guard: INTERPRETER_H */

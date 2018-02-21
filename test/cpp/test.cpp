@@ -1,5 +1,6 @@
-#include "../../src/cpp/haskell_facade.h"
-#include "../../src/cpp/ncurses_display.h"
+#include "haskell_facade.h"
+#include "interpreter.h"
+#include "utils.h"
 
 #include <iostream>
 #include <fstream>
@@ -8,152 +9,132 @@
 #include <chrono>
 #include <iomanip>
 
-const static int NUM_TESTS = 500;
+const static int NUM_TESTS = 9261;
 
-/**
- * Reads a file into a C string, returns a unique pointer to that string
- *
- * @param fname String containing path to file to read
- */
-
-static std::unique_ptr<char[]> readFile(const std::string & fname)
+static bool verifyMult(int argc, char * * argv)
 {
-  std::ifstream ifs;
-  int length;
-  ifs.open(fname);
+  using namespace utils;
 
-  if(!ifs.good())
+  const std::string infile = "test/golden/mult.s";
+
+  std::cerr << "Reading assembly from " << infile << std::endl;
+
+  // Read file into a C string
+  std::string fileContents = FileManager::readFile(infile);
+
+  std::string result;
+  int status;
   {
-    throw std::runtime_error("Could not open requested input file.");
+    // Init haskell handler
+    HaskellFacade hf(&argc, argv);
+
+    // Punt to Haskell assembler - result is a C string of binary
+    result = hf.assembleFile(infile.c_str(), fileContents.c_str(), &status);
   }
 
-  // seek to end of file
-  ifs.seekg(0, std::ios::end);
+  if(status)
+  {
+    std::cerr << "error:\n" << result << std::endl;
+    exit(status);
+  }
 
-  // get current position - this is the length of the necessary buffer
-  length = ifs.tellg();
-  //seek back to the beginning of the file for a re-read
-  ifs.seekg(0, std::ios::beg);
+  CPU::Interpreter inter(CPU::CodeParser()(result));
+  CPU::InterpreterSupervisor env(inter);
 
-  // make a buffer of the necessary size
-  char * buffer = new char[length];
+  // construct a trivial random generator engine from a time-based seed:
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine generator (seed);
 
-  ifs.read(buffer, length);
-  ifs.close();
+  std::uniform_int_distribution<int> distribution(0,255);
 
-  return std::unique_ptr<char[]>(buffer);
+  bool multPass = true;
+
+  for(int i = 0; i < NUM_TESTS; i++)
+  {
+    env.setInit(true);
+
+    env.executeNext(); // skip fin, if at it
+    env.executeNext(); // execute reset, if at it, to lower done flag
+
+    env.setInit(false);
+
+    uint8_t a = distribution(generator);
+    uint8_t b = distribution(generator);
+    uint8_t c = distribution(generator);
+
+    env.setMemory(1, a);
+    env.setMemory(2, b);
+    env.setMemory(3, c);
+
+    while(!env.isDone())
+    {
+      env.executeNext();
+    }
+
+    int ans = (env.getMemory(4) << 8) + env.getMemory(5);
+    int expected = (a * b * c) & 0b1111'1111'1111'1111;
+
+    if(ans != expected)
+    {
+      std::cerr << Color(Color::BRIGHT_RED) << "\nFAIL\n" <<
+        Color(Color::RED);
+      std::cerr << "In computation of " << (int)a << " * " << (int)b << " * "
+      << (int)c << "\n";
+      std::cerr << "Expected result: " << expected << "\n";
+      std::cerr << "Actual result: " << ans << "\n";
+      std::cerr << Color(Color::NONE);
+      multPass = false;
+    }
+  }
+
+  return multPass;
 }
 
 int main(int argc, char * * argv)
 {
-  std::string infile = "test/golden/mult.s";
-  std::cerr << "Reading assembly from " << infile << std::endl;
+  using namespace utils;
+
+  bool pass = false;
+  bool multPass = false;
 
   auto start = std::chrono::system_clock::now();
 
-  try
-  {
-    // Read file into a C string
-    std::unique_ptr<char[]> fileContents = std::move(readFile(infile));
-
-    std::string result;
-    int status;
-    {
-      // Init haskell handler
-      HaskellFacade hf(&argc, argv);
-
-      // Punt to Haskell assembler - result is a C string of binary
-      result = hf.assembleFile((char *)infile.c_str(),
-        (char *)fileContents.get(), &status);
-    }
-
-    if(status)
-    {
-      std::cerr << "error:\n" << result << std::endl;
-      exit(status);
-    }
-
-    std::cerr << "Assembly complete. ";
-
-    std::cerr << "Starting interpreter.\n\n";
-
-    CPU::Interpreter inter(CPU::CodeParser()(result));
-    CPU::InterpreterSupervisor env(inter);
-
-    // construct a trivial random generator engine from a time-based seed:
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    std::default_random_engine generator (seed);
-
-    std::uniform_int_distribution<int> distribution(0,255);
-
-    bool multPass = true;
-
-    for(int i = 0; i < NUM_TESTS; i++)
-    {
-      env.setInit(true);
-
-      env.executeNext(); // skip fin, if at it
-      env.executeNext(); // execute reset, if at it, to lower done flag
-
-      env.setInit(false);
-
-      uint8_t a = distribution(generator);
-      uint8_t b = distribution(generator);
-      uint8_t c = distribution(generator);
-
-      env.setMemory(1, a);
-      env.setMemory(2, b);
-      env.setMemory(3, c);
-
-      while(!env.isDone())
-      {
-        env.executeNext();
-      }
-
-      int ans = (env.getMemory(4) << 8) + env.getMemory(5);
-      int expected = (a * b * c) & 0b1111'1111'1111'1111;
-
-      if(ans != expected)
-      {
-        std::cerr << "\033[1;31m" << "\nFAIL\n" << "\033[0;31m";
-        std::cerr << "In computation of " << (int)a << " * " << (int)b << " * "
-        << (int)c << "\n";
-        std::cerr << "Expected result: " << expected << "\n";
-        std::cerr << "Actual result: " << ans << "\n";
-        std::cerr << "\033[0m";
-        multPass = false;
-      }
-    }
-
-    auto end = std::chrono::system_clock::now();
-
-    std::chrono::duration<double> elapsed_seconds = end - start;
-
-    bool pass = true;
-
-    if(multPass)
-    {
-      std::cerr << "\nmult: " << "\033[32m" << "OK\n" << "\033[0m";
-    }
-    else
-    {
-      pass = false;
-      std::cerr << "\nmult: " << "\033[1;31m" << "FAIL\n" << "\033[0m";
-    }
-
-    if(pass)
-    {
-      std::cerr << "\033[32m" << "\nAll " << NUM_TESTS << " tests passed (" <<
-      std::setprecision(1) << elapsed_seconds.count() << "s)\n" "\033[0m";
-    }
-
-    return 0;
+  try {
+    multPass = verifyMult(argc, argv);
+    pass = multPass;
   }
   catch(std::runtime_error e)
   {
-    std::cerr << "\nError: " << e.what() << std::endl;
-    return -2;
+    std::cerr << Color(Color::RED) << "\nError: " << e.what() << std::endl;
+    exit(-1);
   }
 
-  return 0;
+  auto end = std::chrono::system_clock::now();
+
+  std::chrono::duration<double> elapsed_seconds = end - start;
+
+  if(multPass)
+  {
+    std::cerr << "\nmult: " << Color(Color::GREEN) << "OK\n" <<
+      Color(Color::NONE);
+  }
+  else
+  {
+    pass = false;
+    std::cerr << "\nmult: " << Color(Color::RED) << "FAIL\n" <<
+      Color(Color::NONE);
+  }
+
+  if(pass)
+  {
+    std::cerr << Color(Color::GREEN) << "\nAll " << NUM_TESTS <<
+    " tests passed (" << std::setprecision(1) << elapsed_seconds.count() <<
+    "s)\n" << Color(Color::GREEN);
+
+    return 0;
+  }
+  else
+  {
+    return 1;
+  }
 }

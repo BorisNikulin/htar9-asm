@@ -27,6 +27,7 @@ instance Storable AsmResultStruct where
 	poke ptr (AsmResultStruct status str) = do
 		pokeByteOff ptr 0 status
 		pokeByteOff ptr 8 str
+	alignment _ = max (sizeOf (undefined :: Int )) (sizeOf (undefined :: CString))
 
 foreign export ccall cAssemble :: CString -> CString -> IO AsmResult
 

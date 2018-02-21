@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HASKELL_FACADE_H
+#define HASKELL_FACADE_H
 
 #include <string>
 
@@ -12,5 +13,8 @@ class HaskellFacade {
         HaskellFacade(int * argc, char * * argv);
         ~HaskellFacade();
 
-        std::string assembleFile(char * fname, char * fcontents, int * status);
+        std::string assembleFile(const char * fname, const char * fcontents,
+          int * status);
 };
+
+#endif /* end of include guard: HASKELL_FACADE_H */
