@@ -63,7 +63,7 @@ interpreter for HTAR9 microarchitecture");
 
     if(positional.size() > 0)
     {
-      std::cerr << Color(Color::YELLOW) <<
+      std::cerr << FGColor(Color::YELLOW) <<
       "Warning: Multiple input files specified. Ignoring extras.\n" <<
       Color(Color::NONE);
     }
@@ -86,7 +86,7 @@ interpreter for HTAR9 microarchitecture");
 
     if(status)
     {
-      std::cerr << Color(Color::RED) << "error:\n" << Color(Color::NONE) <<
+      std::cerr << FGColor(Color::RED) << "error:\n" << Color(Color::NONE) <<
       result << std::endl;
       exit(status);
     }
@@ -117,13 +117,13 @@ interpreter for HTAR9 microarchitecture");
   }
   catch(const cxxopts::OptionException& e)
   {
-    std::cerr << Color(Color::RED) << "Usage error: " << Color(Color::NONE)
+    std::cerr << FGColor(Color::RED) << "Usage error: " << Color(Color::NONE)
     << e.what() << std::endl;
     exit(64);
   }
   catch(const std::runtime_error & e)
   {
-    std::cerr << Color(Color::RED) << "Error: " << Color(Color::NONE)
+    std::cerr << FGColor(Color::RED) << "Error: " << Color(Color::NONE)
     << e.what() << std::endl;
     exit(1);
   }

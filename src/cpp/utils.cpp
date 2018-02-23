@@ -73,20 +73,42 @@ namespace utils {
   }
 
   const std::string Color::escape = "\033[";
+  const std::string Color::NONE = "0";
 
-  Color::Color(ANSIColor code, const bool background) :
-  code(escape + std::to_string(background ? code + 10 : code) + "m")
+  Color::Color(const std::string ansiString) :
+  code(escape + ansiString + "m")
   {
   }
 
-  Color::Color(const int r, const int g, const int b, const bool background) :
-  code(escape + (background ? "48" : "38") + ";2;" +
-  std::to_string(r) + ";" + std::to_string(g) + ";" + std::to_string(b) + "m")
+  FGColor::FGColor(const ANSIColor code) :
+  Color(std::to_string(code))
+  {
+  }
+
+  FGColor::FGColor(const int r, const int g, const int b) :
+  Color("38;2;" + std::to_string(r) + ";" + std::to_string(g) + ";"
+  + std::to_string(b))
   {
     if(!(verifyColorComponent(r) && verifyColorComponent(g) &&
       verifyColorComponent(b)))
     {
-        throw std::runtime_error("Specified color code was invalid.");
+      throw std::runtime_error("Invalid color component");
+    }
+  }
+
+  BGColor::BGColor(const ANSIColor code) :
+  Color(std::to_string(code + 10))
+  {
+  }
+
+  BGColor::BGColor(const int r, const int g, const int b) :
+  Color("48;2;" + std::to_string(r) + ";" + std::to_string(g) + ";"
+  + std::to_string(b))
+  {
+    if(!(verifyColorComponent(r) && verifyColorComponent(g) &&
+      verifyColorComponent(b)))
+    {
+      throw std::runtime_error("Invalid color component");
     }
   }
 

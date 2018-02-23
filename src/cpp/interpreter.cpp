@@ -50,8 +50,8 @@ namespace CPU {
     done = false;
     bool branch = false, reset = false;
 
-    int alu_op1 = registers[ARITHMETIC_REGISTER];
-    int alu_op2;
+    word alu_op1 = registers[ARITHMETIC_REGISTER];
+    word alu_op2;
 
     // select operand type - register or immediate
     switch(insn.getOperand().getType())
@@ -82,6 +82,21 @@ namespace CPU {
 
       case Instruction::STR:
         memory.at(alu_op2) = alu_op1;
+      break;
+
+      case Instruction::DIST:
+        {
+          int8_t alu_op1_signed = alu_op1;
+          int8_t alu_op2_signed = alu_op2;
+
+          int result = std::abs((int)alu_op1_signed - (int)alu_op2_signed);
+
+          registers[ARITHMETIC_REGISTER] = result & 0b1111'1111;
+        }
+      break;
+
+      case Instruction::MIN:
+        registers[ARITHMETIC_REGISTER] = std::min(alu_op1, alu_op2);
       break;
 
       case Instruction::ADD:
@@ -153,6 +168,7 @@ namespace CPU {
       {
         pc += 1;
       }
+      done = false;
     }
   }
 
@@ -189,7 +205,7 @@ namespace CPU {
           return;
         }
       }
-      // Memory instructions
+      // Register-only instructions
       else
       {
         operand = Operand(Operand::REGISTER, insn);
@@ -212,6 +228,20 @@ namespace CPU {
           assemblyStream << "ld r" << operand.getValue();
           assembly = assemblyStream.str();
           type = LD;
+          return;
+        }
+        else if(insn.compare(3, 3, "100") == 0)
+        {
+          assemblyStream << "dist r" << operand.getValue();
+          assembly = assemblyStream.str();
+          type = DIST;
+          return;
+        }
+        else if(insn.compare(3, 3, "101") == 0)
+        {
+          assemblyStream << "min r" << operand.getValue();
+          assembly = assemblyStream.str();
+          type = MIN;
           return;
         }
       }
@@ -290,7 +320,7 @@ namespace CPU {
       }
       else if(insn.compare(0, 3, "101") == 0)
       {
-        assemblyStream << "lshft " << operandStr.str();
+        assemblyStream << "rshft " << operandStr.str();
         assembly = assemblyStream.str();
         type = reg ? RSHFT : RSHFTI;
         return;

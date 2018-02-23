@@ -84,7 +84,7 @@ pJump = pJumpOffset <|> (mkJumpLabel <$> getPosition <*> pIdent) <?> "label or s
 
 pInst :: Parser Inst
 pInst = do
-	inst <- asum [pMv, pStr, pLd, pFin, pReset, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBa] <?> "assembly instruction"
+	inst <- asum [pMv, pStr, pLd, pDist, pMin, pFin, pReset, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBa] <?> "assembly instruction"
 	pc += 1
 	return inst
 	where
@@ -92,6 +92,8 @@ pInst = do
 		pMv  = ts "mv"  >> Mv  <$> pReg
 		pStr = ts "str" >> Str <$> pReg
 		pLd  = ts "ld"  >> Ld  <$> pReg
+		pDist = ts "dist" >> Dist <$> pReg
+		pMin = ts "min" >> Min <$> pReg
 		pFin = ts "fin" >> return Fin
 		pReset = ts "reset" >> return Reset
 		pAdd = ts "add" >> Add <$> pRegImm

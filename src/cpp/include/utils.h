@@ -22,18 +22,37 @@ namespace utils {
     }
 
   public:
-    enum ANSIColor { BLACK=30, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE,
-                     BRIGHT_BLACK=90, BRIGHT_RED, BRIGHT_GREEN, BRIGHT_YELLOW,
-                     BRIGHT_BLUE, BRIGHT_MAGENTA, BRIGHT_CYAN, BRIGHT_WHITE,
-                     NONE = 0 };
+    enum ANSIColor {
+      BLACK=30, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE,
+      BRIGHT_BLACK=90, BRIGHT_RED, BRIGHT_GREEN, BRIGHT_YELLOW,
+      BRIGHT_BLUE, BRIGHT_MAGENTA, BRIGHT_CYAN, BRIGHT_WHITE
+    };
 
-    Color(ANSIColor code, const bool background = false);
-    Color(const int r, const int g, const int b, const bool background = false);
-  private:
+    static const std::string NONE;
+
+    Color(const std::string ansiString);
+
+  protected:
     static const std::string escape;
-    static bool verifyColorComponent(const int c) noexcept;
 
+    static bool verifyColorComponent(const int c) noexcept;
+    
+  private:
     std::string code;
+  };
+
+  class FGColor : public Color
+  {
+  public:
+    FGColor(const ANSIColor c);
+    FGColor(const int r, const int g, const int b);
+  };
+
+  class BGColor : public Color
+  {
+  public:
+    BGColor(const ANSIColor c);
+    BGColor(const int r, const int g, const int b);
   };
 
 }

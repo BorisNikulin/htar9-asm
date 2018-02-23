@@ -16,7 +16,7 @@ import Text.AsmParser (SymbolTable)
 
 import Numeric (showIntAtBase)
 import Data.Char (intToDigit)
-import Data.Semigroup
+import Data.Semigroup hiding (Min) -- name clash with Min instruction
 import Data.Map.Strict ((!?))
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -103,6 +103,8 @@ translateAsm
 translateAsm _ (_, (Mv  r))   = Right . tlb $ "000000" <> tReg r
 translateAsm _ (_, (Str r))   = Right . tlb $ "000010" <> tReg r
 translateAsm _ (_, (Ld  r))   = Right . tlb $ "000011" <> tReg r
+translateAsm _ (_, (Dist r))  = Right . tlb $ "000100" <> tReg r
+translateAsm _ (_, (Min r))   = Right . tlb $ "000101" <> tReg r
 translateAsm _ (_, (Fin))     = Right . tlb $ "000111000"
 translateAsm _ (_, (Reset))   = Right . tlb $ "000111001"
 translateAsm _ (_, (Add o))   = Right . tlb $ "001" <> tRegImm o

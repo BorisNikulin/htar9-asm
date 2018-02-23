@@ -113,6 +113,8 @@ pattern JLabel sp l <- JumpLabel sp l
 data Inst = Mv Reg
 		  | Str Reg
 		  | Ld Reg
+		  | Dist Reg
+		  | Min Reg
 		  | Fin
 		  | Reset
 		  | Add RegImm

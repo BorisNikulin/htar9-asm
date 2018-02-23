@@ -36,8 +36,8 @@ namespace CPU {
     struct Instruction
     {
     public:
-      enum InstructionType { MV, LD, STR, ADD, ADDI, SUB, SUBI, AND, ANDI,
-        LSHFT, LSHFTI, RSHFT, RSHFTI, BCS, BA, FIN, RESET };
+      enum InstructionType { MV, LD, STR, DIST, MIN, ADD, ADDI, SUB, SUBI, AND,
+        ANDI, LSHFT, LSHFTI, RSHFT, RSHFTI, BCS, BA, FIN, RESET };
 
       struct Operand
       {

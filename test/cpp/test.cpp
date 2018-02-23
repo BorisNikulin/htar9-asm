@@ -9,6 +9,8 @@
 #include <chrono>
 #include <iomanip>
 #include <string>
+#include <cmath>
+#include <climits>
 
 // construct a trivial random generator engine from a time-based seed:
 static const unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -68,7 +70,6 @@ static bool verifyMult(HaskellFacade & hf)
     env.setInit(true);
 
     env.executeNext(); // skip fin, if at it - else we're just re-clearing ra
-    env.executeNext();
 
     env.setInit(false);
 
@@ -82,8 +83,8 @@ static bool verifyMult(HaskellFacade & hf)
 
     if(ans != expected)
     {
-      std::cerr << Color(Color::BRIGHT_RED) << "\nFAIL\n" <<
-        Color(Color::RED);
+      std::cerr << FGColor(Color::BRIGHT_RED) << "\nFAIL\n" <<
+        FGColor(Color::RED);
       std::cerr << "In computation of " << (int)a << " * " << (int)b << " * "
       << (int)c << "\n";
       std::cerr << "Expected result: " << expected << "\n";
@@ -128,7 +129,6 @@ static bool verifyString(HaskellFacade & hf)
     env.setInit(true);
 
     env.executeNext(); // skip fin, if at it - else we're just re-clearing ra
-    env.executeNext();
 
     env.setInit(false);
 
@@ -149,6 +149,7 @@ static bool verifyString(HaskellFacade & hf)
         if((target & 0b1111) == pattern)
         {
           match = true;
+          break;
         }
         target >>= 1;
       }
@@ -160,8 +161,8 @@ static bool verifyString(HaskellFacade & hf)
 
     if(ans != expected)
     {
-      std::cerr << Color(Color::BRIGHT_RED) << "\nFAIL\n" <<
-        Color(Color::RED);
+      std::cerr << FGColor(Color::BRIGHT_RED) << "\nFAIL\n" <<
+        FGColor(Color::RED);
       std::cerr << "In string find of pattern " << pattern << "\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
@@ -173,12 +174,77 @@ static bool verifyString(HaskellFacade & hf)
   return stringPass;
 }
 
+static bool verifyPair(HaskellFacade & hf)
+{
+  using namespace utils;
+
+  static const std::string infile = "test/golden/pair.s";
+  static const int ARRAY_START = 128;
+  static const int ARRAY_SIZE = 20;
+
+  std::string code = getCode(infile, hf);
+
+  CPU::Interpreter inter(CPU::CodeParser()(code));
+  CPU::InterpreterSupervisor env(inter);
+
+  std::uniform_int_distribution<int8_t> byteDistribution(-128, 127);
+
+  bool pairPass = true;
+
+  for(int i = 0; i < NUM_TESTS; i++)
+  {
+    for(int i = ARRAY_START; i < ARRAY_START + ARRAY_SIZE; i++)
+    {
+      int8_t val = byteDistribution(generator);
+      env.setMemory(i, val);
+    }
+
+    env.setInit(true);
+
+    env.executeNext(); // skip fin, if at it - else we're just re-clearing ra
+
+    env.setInit(false);
+
+    while(!env.isDone())
+    {
+      env.executeNext();
+    }
+
+    int ans = env.getMemory(127);
+
+    int expected = INT_MAX;
+    for(int i = 0; i < ARRAY_SIZE - 1; i++)
+    {
+      for(int j = i + 1; j < ARRAY_SIZE; j++)
+      {
+        int8_t b1 = env.getMemory(ARRAY_START + i);
+        int8_t b2 = env.getMemory(ARRAY_START + j);
+        int curDist = std::abs((int)b1 - (int)b2);
+
+        expected = std::min(curDist, expected);
+      }
+    }
+
+    if(ans != expected)
+    {
+      std::cerr << FGColor(Color::BRIGHT_RED) << "\nFAIL\n" <<
+        FGColor(Color::RED);
+      std::cerr << "In pair distance\n";
+      std::cerr << "Expected result: " << expected << "\n";
+      std::cerr << "Actual result: " << ans << "\n";
+      std::cerr << Color(Color::NONE);
+      pairPass = false;
+    }
+  }
+
+  return pairPass;
+}
+
 int main(int argc, char * * argv)
 {
   using namespace utils;
 
-  bool pass = false, multPass = false, stringPass = false;
-  //bool pairPass = false;
+  bool pass = false, multPass = false, stringPass = false, pairPass = false;
 
   auto start = std::chrono::system_clock::now();
 
@@ -187,12 +253,12 @@ int main(int argc, char * * argv)
   try {
     multPass = verifyMult(hf);
     stringPass = verifyString(hf);
-    //pairPass = verifyPair();
-    pass = multPass && stringPass; //&& pairPass;
+    pairPass = verifyPair(hf);
+    pass = multPass && stringPass && pairPass;
   }
   catch(std::runtime_error e)
   {
-    std::cerr << Color(Color::RED) << "\nError: " << e.what() << std::endl;
+    std::cerr << FGColor(Color::RED) << "\nError: " << e.what() << std::endl;
     exit(-1);
   }
 
@@ -202,33 +268,45 @@ int main(int argc, char * * argv)
 
   if(multPass)
   {
-    std::cerr << "\nmult: " << Color(Color::GREEN) << "OK\n" <<
+    std::cerr << "\nmult: " << FGColor(Color::GREEN) << "OK\n" <<
       Color(Color::NONE);
   }
   else
   {
     pass = false;
-    std::cerr << "\nmult: " << Color(Color::BRIGHT_RED) << "FAIL\n" <<
+    std::cerr << "\nmult: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
       Color(Color::NONE);
   }
 
   if(stringPass)
   {
-    std::cerr << "string: " << Color(Color::GREEN) << "OK\n" <<
+    std::cerr << "string: " << FGColor(Color::GREEN) << "OK\n" <<
       Color(Color::NONE);
   }
   else
   {
     pass = false;
-    std::cerr << "string: " << Color(Color::BRIGHT_RED) << "FAIL\n" <<
+    std::cerr << "string: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
+      Color(Color::NONE);
+  }
+
+  if(pairPass)
+  {
+    std::cerr << "pair: " << FGColor(Color::GREEN) << "OK\n" <<
+      Color(Color::NONE);
+  }
+  else
+  {
+    pass = false;
+    std::cerr << "pair: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
       Color(Color::NONE);
   }
 
   if(pass)
   {
-    std::cerr << Color(Color::GREEN) << "\nAll " << NUM_TESTS <<
+    std::cerr << FGColor(Color::GREEN) << "\nAll " << NUM_TESTS <<
     " tests passed (" << std::setprecision(1) << elapsed_seconds.count() <<
-    "s)\n" << Color(Color::GREEN);
+    "s)\n" << Color(Color::NONE);
 
     return 0;
   }
