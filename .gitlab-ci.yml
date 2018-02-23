@@ -16,7 +16,7 @@ test:
     script:
         # coverage report goes in .stack-work which is cached
         # so no need to artifact it for pages job
-        - stack test --system-ghc --coverage
+        - stack test --system-ghc --coverage --test-arguments "--color always"
     coverage: '/(\d+)\% expressions used/'
     cache:
         key: test

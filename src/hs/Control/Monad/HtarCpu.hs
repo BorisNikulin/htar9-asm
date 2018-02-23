@@ -8,6 +8,8 @@ module Control.Monad.HtarCpu
 	  HCpu
 	, runHCpu
 	, runHCpuWith
+	, stepHCpuWith
+	, defHCpuState
 	  -- * Errors
 	, HCpuError
 	) where
@@ -24,7 +26,8 @@ import Control.Monad.Reader
 
 -- | Error type for invalid instructions like jumping to a label
 -- which the native htar cpu does not understand.
-data HCpuError = InvalidJumpToLabelError (CpuState Word8)
+data HCpuError =
+	  InvalidJumpToLabelError (CpuState Word8)
 	| InvalidStartingCpuState (CpuState Word8)
 	deriving (Show)
 
@@ -33,14 +36,22 @@ newtype HCpu s a = HCpu { unHCpu :: ExceptT HCpuError (ReaderT (V.Vector Inst) (
 	deriving (Functor, Applicative, Monad,
 		MonadCpu Word8, MonadReader (V.Vector Inst), MonadError HCpuError)
 
+defHCpuState :: CpuState Word8
+defHCpuState = CpuState
+	{ cpuRegs  = V.replicate 8 0
+	, cpuFlags = V.replicate 2 False
+	, cpuRam   = V.replicate 256 0
+	, cpuPc    = 0
+	}
+
 -- | Like 'runHCpu' but allows bootstrapping starting CpuState. NB: HTAR9 cpu's
 -- expects 8 registers, a single conditional flag, and 256 ram entries.
 runHCpuWith :: CpuState Word8 -> V.Vector Inst -> Either HCpuError (CpuState Word8)
 runHCpuWith s v
 	| V.length (cpuRegs s) >= 8
-		&& V.length (cpuFlags s) >= 1
+		&& V.length (cpuFlags s) >= 2
 		&& V.length (cpuRam s) >= 256
-		= case runCpu (runReaderT (runExceptT (unHCpu evalNext)) v) s of
+		= case runCpu (runReaderT (runExceptT (unHCpu eval)) v) s of
 				((Right _), s') -> Right s'
 				((Left e) , _) -> Left e
 	| otherwise = Left $ InvalidStartingCpuState s
@@ -49,15 +60,18 @@ runHCpuWith s v
 -- Only native HTAR9 instructions so
 -- a jump to a label will cause an error.
 runHCpu :: V.Vector Inst -> Either HCpuError (CpuState Word8)
-runHCpu = runHCpuWith defState
-	where
-		defState :: CpuState Word8
-		defState = CpuState
-			{ cpuRegs  = V.replicate 8 0
-			, cpuFlags = V.singleton False
-			, cpuRam   = V.replicate 256 0
-			, cpuPc    = 0
-			}
+runHCpu = runHCpuWith defHCpuState
+
+stepHCpuWith :: CpuState Word8 -> Inst -> Either HCpuError (CpuState Word8)
+stepHCpuWith s i
+	| V.length (cpuRegs s) >= 8
+		&& V.length (cpuFlags s) >= 2
+		&& V.length (cpuRam s) >= 256
+		-- stepInst MUST NEVER call ask and evaluate the result
+		= case runCpu (runReaderT (runExceptT (unHCpu $ stepInst i)) undefined) s of
+				((Right _), s') -> Right s'
+				((Left e) , _) -> Left e
+	| otherwise = Left $ InvalidStartingCpuState s
 
 mv :: MonadCpu Word8 m => Reg -> m ()
 mv (R r) = do
@@ -150,30 +164,30 @@ setConditionIfRegA p = do
 		then setFlag 0 True
 		else setFlag 0 False
 
-evalNext :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => m ()
-evalNext = do
-	insts <- ask
-	pc <- getPc
-	let inst = insts V.! (fromIntegral pc)
-	evalInst inst
+eval :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => m ()
+eval = do
+	isDone <- getFlag 1
+	if isDone
+		then return ()
+		else do
+			insts <- ask :: (MonadReader (V.Vector Inst) m => m (V.Vector Inst))
+			pc <- getPc
+			let inst = insts V.! (fromIntegral pc)
+			stepInst inst >> eval
 
--- TODO error checking
-evalInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => Inst -> m ()
-evalInst Fin   = modifyPc (+1)
-evalInst Reset = setPc 0
-evalInst inst  = evalInst' inst >> evalNext
-	where
-		evalInst' :: (MonadCpu Word8 m, MonadError HCpuError m) => Inst -> m ()
-		evalInst' (Mv  r) = mv r
-		evalInst' (Str r) = str r
-		evalInst' (Ld  r) = ld r
-		evalInst' (Add o) = add o
-		evalInst' (Sub o) = sub o
-		evalInst' (And o) = and o
-		evalInst' (Lshft o) = lshft o
-		evalInst' (Rshft o) = rshft o
-		evalInst' (Bcs j@(JOffset _))  = bcs j
-		evalInst' (Bcs   (JLabel _ _)) = getState >>= throwError . InvalidJumpToLabelError
-		evalInst' (Ba  j@(JOffset _))  = ba  j
-		evalInst' (Ba    (JLabel _ _)) = getState >>= throwError . InvalidJumpToLabelError
-		evalInst' _ = error "invalid args"
+stepInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => Inst -> m ()
+stepInst Fin   = setFlag 1 True >> modifyPc (+1)
+stepInst Reset = setPc 0
+stepInst (Mv  r) = mv r
+stepInst (Str r) = str r
+stepInst (Ld  r) = ld r
+stepInst (Add o) = add o
+stepInst (Sub o) = sub o
+stepInst (And o) = and o
+stepInst (Lshft o) = lshft o
+stepInst (Rshft o) = rshft o
+stepInst (Bcs j@(JOffset _))  = bcs j
+stepInst (Bcs   (JLabel _ _)) = getState >>= throwError . InvalidJumpToLabelError
+stepInst (Ba  j@(JOffset _))  = ba  j
+stepInst (Ba    (JLabel _ _)) = getState >>= throwError . InvalidJumpToLabelError
+stepInst _ = error "invalid args"

@@ -18,6 +18,11 @@ module Control.Monad.Cpu
 	, CpuState(..)
 	, runCpu
 	, unsafeRunCpu
+	  -- * Lenses
+	, cpuRegsL
+	, cpuFlagsL
+	, cpuRamL
+	, cpuPcL
 	) where
 
 import qualified Data.Vector as V
@@ -31,6 +36,7 @@ import Control.Monad.State
 import Control.Monad.RWS
 import Control.Monad.Except
 import Control.Monad.Cont
+import Brick.Types (suffixLenses)
 
 data CpuEnv w s = CpuEnv
 	{ _regs  :: MV.MVector s w
@@ -48,6 +54,8 @@ data CpuState w = CpuState
 	, cpuRam   :: V.Vector w
 	, cpuPc    :: Word
 	} deriving (Show, Eq)
+
+suffixLenses ''CpuState
 
 -- | 'Cpu' monad with registers, flags, ram, and a program counter.
 -- 'Cpu' is designed with emulating simple instruction sets and thus is more like

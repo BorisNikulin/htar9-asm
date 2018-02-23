@@ -29,6 +29,7 @@ dependencies:
     - megaparsec >= 6 && < 7
     - mtl >= 2 && < 3
     - brick < 1
+    - vty > 5 && < 6
     - containers < 1
     - optparse-applicative < 1
     - filepath >= 1 && < 2
