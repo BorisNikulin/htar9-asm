@@ -24,6 +24,7 @@ import Data.Vector ((//))
 import qualified Data.Vector as V
 import Data.Bits
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Lens.Micro.Platform
 import System.IO
 import Numeric.Natural
 
@@ -45,117 +46,86 @@ regs = cpuRegs defState
 ram  = cpuRam  defState
 
 defState :: CpuState Word8
-defState = CpuState [255,1,34,64,100,56,240,0] (V.singleton False) (V.replicate 256 0 // [(0,77), (1, 240)]) 0
+defState = CpuState [255,1,34,64,100,56,240,0] (V.replicate 2 False) (V.replicate 256 0 // [(0,77), (1, 240)]) 0
 
 tests = testGroup "Control.Monad.HtarCpu"
 	[ testCase "mv" $
 		let Right s = runHCpuWith defState [Mv $ mkReg 1, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,0), (1, 255)], cpuPc = 2}
+		in (s^?!cpuRegsL.ix 0, s^?!cpuRegsL.ix 1) @?= (0,  255)
 	, testCase "mv ra" $
 		let Right s = runHCpuWith defState [Mv $ mkReg 0, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,0)], cpuPc = 2}
+		in s^?!cpuRegsL.ix 0 @?= 0
 	, testCase "str" $
 		let Right s = runHCpuWith defState [Str $ mkReg 2, Fin]
-		in s @?= defState{cpuRam = ram // [(34,255)], cpuPc = 2}
+		in s^?!cpuRamL.ix 34 @?= 255
 	, testCase "ld" $
 		let Right s = runHCpuWith defState [Ld $ mkReg 7, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,77)], cpuPc = 2}
+		in s^?!cpuRegsL.ix 0 @?= 77
 	, testCase "fin" $
 		let Right s = runHCpuWith defState [Fin]
-		in s @?= defState{cpuPc = 1}
-	, testCase "add" $
-		let Right s = runHCpuWith defState [Ld $ mkReg 7, Add $ mkRegister 1, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,78)], cpuFlags = [True],  cpuPc = 3}
-	, testProperty "add flagging" $
+		in s^.cpuPcL @?= 1
+	, testCase "reset" $
+		let Right s = runHCpuWith defState [Bcs $ mkJumpOffset 2, Ba $ mkJumpOffset 2, Fin, And $ mkImmediate 0 ,Reset]
+		in s^.cpuPcL @?= 3
+	, testProperty "add" $
 		\(I x) ->
 			let Right s = runHCpuWith defState [Mv $ mkReg 0, Ld $ mkReg 1, Add $ mkImmediate x, Fin]
-			in s == defState
-			{ cpuRegs = regs // [(0, 240 + x)]
-			, cpuFlags = [x <= 255 - 240]
-			, cpuPc = 4
-			}
-	, testCase "sub" $
-		let Right s = runHCpuWith defState [Sub $ mkRegister 1, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,254)], cpuFlags = [True], cpuPc = 2}
-	, testProperty "sub flagging" $
+			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (240 + x, x <= 255 - 240)
+	, testProperty "sub" $
 		\(I x) ->
-			let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Sub $ mkImmediate x, Fin]
-			in s == defState
-			{ cpuRegs = regs // [(0, 34 - x)]
-			, cpuFlags = [34 - x /= 0]
-			, cpuPc = 4
-			}
-	, testCase "and" $
-		let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 37, And $ mkRegister 5, Fin]
-		in s @?= defState{cpuRegs = regs // [(0, 37 .&. 56)], cpuPc = 4}
-	, testProperty "and flagging" $
+			let
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Sub $ mkImmediate x, Fin]
+				res     = 34 - x
+			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res /= 0)
+	, testProperty "and" $
 		\(I x) ->
-			let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, And $ mkImmediate x, Fin]
-			in s == defState
-			{ cpuRegs = regs // [(0, 34 .&. x)]
-			, cpuFlags = [34 .&. x == 0]
-			, cpuPc = 4
-			}
-	, testCase "lshft" $
-		let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 1, Lshft $ mkImmediate 2, Fin]
-		in s @?= defState{cpuRegs = regs // [(0, shiftL 1 2)], cpuFlags = [True], cpuPc = 4}
-	, testProperty "lshft flagging" $
+			let
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, And $ mkImmediate x, Fin]
+				res     = 34 .&. x
+			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res == 0)
+	, testProperty "lshft" $
 		\(I x) ->
-			let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 49, Lshft $ mkImmediate x, Fin]
-			in s == defState
-			{ cpuRegs = regs // [(0, shiftL 49 (fromIntegral x))]
-			, cpuFlags = [shiftL (49 :: Word8) (fromIntegral x)  /= 0]
-			, cpuPc = 4
-			}
-	, testCase "rshft" $
-		let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 55, Rshft $ mkImmediate 3, Fin]
-		in s @?= defState{cpuRegs = regs // [(0, shiftR 55 3)], cpuFlags = [True], cpuPc = 4}
-	, testProperty "rshft flagging" $
+			let
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 49, Lshft $ mkImmediate x, Fin]
+				res     = shiftL 49 (fromIntegral x)
+			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res /= 0)
+	, testProperty "rshft" $
 		\(I x) ->
-			let Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Rshft $ mkImmediate x, Fin]
-			in s == defState
-			{ cpuRegs = regs // [(0, shiftR 34 (fromIntegral x))]
-			, cpuFlags = [shiftR (34 :: Word8) (fromIntegral x) /= 0]
-			, cpuPc = 4
-			}
+			let
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Rshft $ mkImmediate x, Fin]
+				res     = shiftR 34 (fromIntegral x)
+			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res /= 0)
 	, testCase "bcs true" $
 		let Right s = runHCpuWith defState [And $ mkImmediate 0, Bcs $ mkJumpOffset 2, Fin, Mv $ mkReg 7, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,0)], cpuFlags = [True], cpuPc = 5}
+		in (s^?!cpuFlagsL.ix 0, s^.cpuPcL) @?= (True, 5)
 	, testCase "bcs false" $
 		let Right s = runHCpuWith defState [And $ mkImmediate 1, Bcs $ mkJumpOffset 2, Fin, Mv $ mkReg 7, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,1)], cpuPc = 3}
+		in (s^?!cpuFlagsL.ix 0, s^.cpuPcL) @?= (False, 3)
 	, testCase "ba" $
 		let Right s = runHCpuWith defState [Ba $ mkJumpOffset 2, Fin, Mv $ mkReg 7, Fin]
-		in s @?= defState{cpuRegs = regs // [(0,0), (7,255)], cpuPc = 4}
+		in s^.cpuPcL @?= 4
 	, withResource
-		initResource
-		(hClose . fst)
+		(initResource "./test/golden/mult.s")
+		(hClose . view _1)
 		emulTest
 	]
 
-initResource = do
-	h <- openFile "./test/golden/mult.s" ReadMode
+initResource :: FilePath -> IO (Handle, V.Vector Inst)
+initResource fp = do
+	h <- openFile fp ReadMode
 	file <- hGetContents h
 	let
 		Right (instsWithLabels, t) = parseAsm "mult.s" file
-		Right bin                  = translateAsms t instsWithLabels
-		Right stripedInsts         = translateLabels t instsWithLabels
-		Right insts                = Bin.parseAsm "mult" (BL.unpack $ BL.concat bin)
-	-- checked in ghci that strippedInsts == insts (not really a surprise)
-	-- emulator is probably the one that's broken
+		Right insts                = translateLabels t instsWithLabels
 	return (h, V.fromList insts)
 
+emulTest :: IO (Handle, V.Vector Inst) -> TestTree
 emulTest getResource =
 	testGroup "Program"
 	[ testProperty "mult" $ \x y z -> monadic $ do
 		(_, insts) <- getResource
 		let
-			defState = CpuState
-				(V.replicate 8 0)
-				(V.singleton False)
-				(V.replicate 256 0)
-				0
-			Right s = runHCpuWith defState{cpuRam = cpuRam defState // [(1, x), (2, y), (3, z)]} insts
+			Right s = runHCpuWith defHCpuState{cpuRam = cpuRam defHCpuState // [(1, x), (2, y), (3, z)]} insts
 			toWord = fromIntegral :: (Word8 -> Word)
 			resWord = (toWord x) * (toWord y) * (toWord z)
 			low8Mask = shiftL 1 8 - 1 -- 255 done fancily

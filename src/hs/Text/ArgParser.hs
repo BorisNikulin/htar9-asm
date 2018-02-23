@@ -15,6 +15,9 @@ data Options =
 	}
 	| InterpretOptions
 	{ optInputFile  :: FilePath
+	}
+	| RunOptions
+	{ optInputFile  :: FilePath
 	} deriving (Show)
 
 assembleArgParser :: Parser Options
@@ -33,8 +36,26 @@ assembleArgParser =
 		(  metavar "INPUT_FILE"
 		<> help "<help>")
 
+interpretArgParser :: Parser Options
+interpretArgParser =
+	InterpretOptions
+	<$> strOption
+		(  long "interpret"
+		<> short 'i'
+		<> metavar "INPUT_FILE"
+		<> help "interpret HTAR9 source inside a tui")
+
+runArgParser :: Parser Options
+runArgParser =
+	RunOptions
+	<$> strOption
+	   (  long "run"
+	   <> short 'r'
+	   <> metavar "INPUT_FILE"
+	   <> help "run HTAR9 source to completion")
+
 argParser :: Parser Options
-argParser = assembleArgParser
+argParser = assembleArgParser <|> interpretArgParser <|> runArgParser
 
 parseArgs :: IO Options
 parseArgs = execParser opts

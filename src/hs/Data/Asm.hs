@@ -1,5 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving
-	, PatternSynonyms#-}
+	, PatternSynonyms
+	, BangPatterns
+#-}
 
 module Data.Asm
 	( Reg
@@ -22,9 +24,16 @@ module Data.Asm
 	, pattern JOffset
 	, pattern JLabel
 	, Inst(..)
+	  -- * Pretty Printing
+	, regPretty
+	, regImmPretty
+	, jumpPretty
+	, instPretty
 	) where
 
 import Data.Word
+import Data.String
+import Data.Semigroup
 import Text.Megaparsec.Pos (SourcePos)
 
 -- | Register specified by a number between 0 and 7 with register a being the same as register 0.
@@ -89,7 +98,7 @@ pattern RegImmR r <- Register  (Reg r)
 type Ident = String
 
 -- | Specifies to a jump to relative offset or to a label.
-data Jump = JumpOffset Int
+data Jump = JumpOffset !Int
 		  | JumpLabel SourcePos Ident -- ^ 'SourcePos' for error messages
 	deriving (Show, Eq)
 
@@ -123,3 +132,28 @@ data Inst = Mv Reg
 		  | Bcs Jump
 		  | Ba Jump
 	deriving (Show, Eq)
+
+regPretty :: IsString a => Reg -> a
+regPretty (R r) = fromString $ "r" <> show r
+
+regImmPretty :: IsString a => RegImm -> a
+regImmPretty (Register r) = regPretty r
+regImmPretty (RegImmI  x) = fromString $ show x -- TODO add on a hex version next to decimal litteral
+
+jumpPretty :: IsString a => Jump -> a
+jumpPretty (JOffset  x) = fromString $ show x
+jumpPretty (JLabel _ l) = fromString $ show l
+
+instPretty :: IsString a => Inst -> a
+instPretty (Mv  r)   = fromString $ "mov   " <> regPretty r
+instPretty (Str r)   = fromString $ "str   " <> regPretty r
+instPretty (Ld  r)   = fromString $ "ld    " <> regPretty r
+instPretty Fin       = fromString $ "fin"
+instPretty Reset     = fromString $ "reset"
+instPretty (Add o)   = fromString $ "add   " <> regImmPretty o
+instPretty (Sub o)   = fromString $ "sub   " <> regImmPretty o
+instPretty (And o)   = fromString $ "and   " <> regImmPretty o
+instPretty (Lshft o) = fromString $ "lshft " <> regImmPretty o
+instPretty (Rshft o) = fromString $ "rshft " <> regImmPretty o
+instPretty (Bcs j)   = fromString $ "bcs   " <> jumpPretty j
+instPretty (Ba  j)   = fromString $ "ba    " <> jumpPretty j
