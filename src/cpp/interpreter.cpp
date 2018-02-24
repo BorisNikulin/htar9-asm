@@ -3,17 +3,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
-
-#include <iostream>
+#include <iomanip>
 
 namespace CPU {
-
-  /**
-   * Constructor - reads machine code into list of instructions and sets up
-   * execution environment
-   *
-   * @param insns   C string of machine code to interpret
-   */
 
   Interpreter::Interpreter(std::vector<std::string> insns)
     : registers(8, 0), memory(256, 0), pc(0), s(false), done(false), init(false)
@@ -23,10 +15,6 @@ namespace CPU {
       programMemory.emplace_back(insn);
     }
   }
-
-  /**
-   * Executes the next instruction
-   */
 
   void Interpreter::executeNext()
   {
@@ -38,12 +26,6 @@ namespace CPU {
 
     this->executeInsn(programMemory[pc]);
   }
-
-  /**
-   * Executes the given instruction
-   *
-   * @param insn Instruction to execute
-   */
 
   void Interpreter::executeInsn(Interpreter::Instruction insn)
   {
@@ -86,9 +68,13 @@ namespace CPU {
 
       case Instruction::DIST:
         {
+          // interpret operands as signed 8-bit numbers
           int8_t alu_op1_signed = alu_op1;
           int8_t alu_op2_signed = alu_op2;
 
+          // cast to int to perform sign extension and widen them into a type
+          // that will now overflow when subtraction is performed; take
+          // absolute value of the subtraction
           int result = std::abs((int)alu_op1_signed - (int)alu_op2_signed);
 
           registers[ARITHMETIC_REGISTER] = result & 0b1111'1111;
@@ -175,12 +161,16 @@ namespace CPU {
   /**
    * Construct an Instruction from the given machine code
    *
-   * @param insn Machine code, as integral value
+   * @param insn Machine code, a string
    */
 
   Interpreter::Instruction::Instruction(const std::string insn)
   {
-    std::stringstream assemblyStream;
+    std::stringstream mnemonicStream;
+
+    mnemonicStream << std::left << std::setw(6);
+
+    std::stringstream operandStream;
 
     // 000-series instructions (simple & memory)
     if(insn.compare(0, 3, "000") == 0)
@@ -191,18 +181,18 @@ namespace CPU {
         // FIN
         if(insn.compare(6, 3, "000") == 0)
         {
-          assemblyStream << "fin";
-          assembly = assemblyStream.str();
+          mnemonicStream << "fin";
           type = FIN;
-          return;
         }
         // RESET
         else if(insn.compare(6, 3, "001") == 0)
         {
-          assemblyStream << "reset";
-          assembly = assemblyStream.str();
+          mnemonicStream << "reset";
           type = RESET;
-          return;
+        }
+        else
+        {
+          throw UnrecognizedInstruction();
         }
       }
       // Register-only instructions
@@ -211,38 +201,37 @@ namespace CPU {
         operand = Operand(Operand::REGISTER, insn);
         if(insn.compare(3, 3, "000") == 0)
         {
-          assemblyStream << "mv r" << operand.getValue();
-          assembly = assemblyStream.str();
+          mnemonicStream << "mv";
+          operandStream << "r" << operand.getValue();
           type = MV;
-          return;
         }
         else if(insn.compare(3, 3, "010") == 0)
         {
-          assemblyStream << "str r" << operand.getValue();
-          assembly = assemblyStream.str();
+          mnemonicStream << "str";
+          operandStream << "r" << operand.getValue();
           type = STR;
-          return;
         }
         else if(insn.compare(3, 3, "011") == 0)
         {
-          assemblyStream << "ld r" << operand.getValue();
-          assembly = assemblyStream.str();
+          mnemonicStream << "ld";
+          operandStream << "r" << operand.getValue();
           type = LD;
-          return;
         }
         else if(insn.compare(3, 3, "100") == 0)
         {
-          assemblyStream << "dist r" << operand.getValue();
-          assembly = assemblyStream.str();
+          mnemonicStream << "dist";
+          operandStream << "r" << operand.getValue();
           type = DIST;
-          return;
         }
         else if(insn.compare(3, 3, "101") == 0)
         {
-          assemblyStream << "min r" << operand.getValue();
-          assembly = assemblyStream.str();
+          mnemonicStream << "min";
+          operandStream << "r" << operand.getValue();
           type = MIN;
-          return;
+        }
+        else
+        {
+          throw UnrecognizedInstruction();
         }
       }
     }
@@ -255,23 +244,19 @@ namespace CPU {
 
       if(branch_always)
       {
-        assemblyStream << "ba " << operand.getValue();
-        assembly = assemblyStream.str();
+        mnemonicStream << "ba";
+        operandStream << operand.getValue();
         type = BA;
-        return;
       }
       else
       {
-        assemblyStream << "bcs " << operand.getValue();
-        assembly = assemblyStream.str();
+        mnemonicStream << "bcs";
+        operandStream << operand.getValue();
         type = BCS;
-        return;
       }
     }
     else
     {
-      std::stringstream operandStr;
-
       auto isRegister = [](std::string insn) -> bool
       {
         return insn.compare(3, 3, "111") == 0;
@@ -282,52 +267,42 @@ namespace CPU {
       if(reg)
       {
         operand = Operand(Operand::REGISTER, insn);
-        operandStr << "r" << operand.getValue();
+        operandStream << "r" << operand.getValue();
       }
       else
       {
         operand = Operand(Operand::UNSIGNED_IMMEDIATE, insn);
-        operandStr << operand.getValue();
+        operandStream << operand.getValue();
       }
 
       if(insn.compare(0, 3, "001") == 0)
       {
-        assemblyStream << "add " << operandStr.str();
-        assembly = assemblyStream.str();
+        mnemonicStream << "add";
         type = reg ? ADD : ADDI;
-        return;
       }
       else if(insn.compare(0, 3, "010") == 0)
       {
-        assemblyStream << "sub " << operandStr.str();
-        assembly = assemblyStream.str();
+        mnemonicStream << "sub";
         type = reg ? SUB : SUBI;
-        return;
       }
       else if(insn.compare(0, 3, "011") == 0)
       {
-        assemblyStream << "and " << operandStr.str();
-        assembly = assemblyStream.str();
+        mnemonicStream << "and";
         type = reg ? AND : ANDI;
-        return;
       }
       else if(insn.compare(0, 3, "100") == 0)
       {
-        assemblyStream << "lshft " << operandStr.str();
-        assembly = assemblyStream.str();
+        mnemonicStream << "lshft";
         type = reg ? LSHFT : LSHFTI;
-        return;
       }
-      else if(insn.compare(0, 3, "101") == 0)
+      else
       {
-        assemblyStream << "rshft " << operandStr.str();
-        assembly = assemblyStream.str();
+        mnemonicStream << "rshft";
         type = reg ? RSHFT : RSHFTI;
-        return;
       }
     }
 
-    throw UnrecognizedInstruction();
+    assembly = mnemonicStream.str() + operandStream.str();
   }
 
   Interpreter::Instruction::InstructionType Interpreter::Instruction::getType()
@@ -374,25 +349,26 @@ namespace CPU {
     return std::stoi(insn.substr(3,6), nullptr, 2);
   }
 
-  /**
-   * Return value of specified register
-   *
-   * @param  idx Index of register
-   * @return     Register value
-   */
+  int Interpreter::Instruction::Operand::getOperandFromInsn(const OperandType
+    type, const std::string insn)
+  {
+    switch(type)
+    {
+      case SIGNED_IMMEDIATE:
+        return extractSignedImmediate(insn);
+      case UNSIGNED_IMMEDIATE:
+        return extractUnsignedImmediate(insn);
+      case REGISTER:
+        return extractRegister(insn);
+      default:
+        return 0;
+    }
+  }
 
   word InterpreterSupervisor::getRegister(const std::size_t idx) const
   {
     return inter.registers.at(idx);
   }
-
-  /**
-   * Return value of specified memory unit
-   *
-   * @param  idx Memory address
-   * @return     Unit value
-   */
-
   word InterpreterSupervisor::getMemory(const std::size_t idx) const
   {
     return inter.memory.at(idx);
@@ -418,33 +394,15 @@ namespace CPU {
 
   */
 
-  /**
-   * Sets specified regsiter to the given value
-   *
-   * @param idx   Index of register
-   * @param value Value to set
-   */
-
   void InterpreterSupervisor::setRegister(std::size_t idx, word value)
   {
     inter.registers.at(idx) = value;
   }
 
-  /**
-   * Sets specified memory unit to the given value
-   *
-   * @param idx   Memory address
-   * @param value Value to set
-   */
-
   void InterpreterSupervisor::setMemory(std::size_t idx, word value)
   {
     inter.memory.at(idx) = value;
   }
-
-  /**
-   * Resets program counter to 0
-   */
 
   void InterpreterSupervisor::resetPC() noexcept
   {

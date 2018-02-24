@@ -8,6 +8,7 @@ copyright:           "2018 Boris Nikulin"
 
 extra-source-files:
     - src/cpp/include/**/*
+    - app/cpp/include/**/*
     - README.md
     - LICENSE
 
@@ -61,6 +62,8 @@ executables:
         source-dirs:         app/cpp
         c-sources:
             - app/cpp/*.cpp
+        include-dirs:
+            - app/cpp/include
 
         ghc-options:
             - -threaded

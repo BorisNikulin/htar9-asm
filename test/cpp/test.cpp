@@ -1,6 +1,7 @@
 #include "haskell_facade.h"
 #include "interpreter.h"
 #include "utils.h"
+#include "sgr.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -21,30 +22,31 @@ const static int NUM_TESTS = 9261;
 static std::string getCode(const std::string infile, HaskellFacade & hf)
 {
   using namespace utils;
+  using namespace cpp_sgr;
 
   std::cerr << "Reading assembly from " << infile << std::endl;
 
   // Read file into a C string
   std::string fileContents = FileManager::readFile(infile);
 
-  std::string result;
-  int status;
+  HaskellFacade::AssembleResult result;
 
   // Punt to Haskell assembler - result is a C string of binary
-  result = hf.assembleFile(infile.c_str(), fileContents.c_str(), &status);
+  result = hf.assembleFile(infile.c_str(), fileContents.c_str());
 
-  if(status)
+  if(result.status)
   {
-    std::cerr << "error:\n" << result << std::endl;
-    exit(status);
+    std::cerr << "error:\n" << result.str << std::endl;
+    exit(result.status);
   }
 
-  return result;
+  return result.str;
 }
 
 static bool verifyMult(HaskellFacade & hf)
 {
   using namespace utils;
+  using namespace cpp_sgr;
 
   const static std::string infile = "test/golden/mult.s";
 
@@ -89,7 +91,7 @@ static bool verifyMult(HaskellFacade & hf)
       << (int)c << "\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
-      std::cerr << Color(Color::NONE);
+      std::cerr << SGR::NONE;
       multPass = false;
     }
   }
@@ -100,6 +102,7 @@ static bool verifyMult(HaskellFacade & hf)
 static bool verifyString(HaskellFacade & hf)
 {
   using namespace utils;
+  using namespace cpp_sgr;
 
   static const std::string infile = "test/golden/string.s";
   static const int STRING_START = 32;
@@ -166,7 +169,7 @@ static bool verifyString(HaskellFacade & hf)
       std::cerr << "In string find of pattern " << pattern << "\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
-      std::cerr << Color(Color::NONE);
+      std::cerr << SGR::NONE;
       stringPass = false;
     }
   }
@@ -177,6 +180,7 @@ static bool verifyString(HaskellFacade & hf)
 static bool verifyPair(HaskellFacade & hf)
 {
   using namespace utils;
+  using namespace cpp_sgr;
 
   static const std::string infile = "test/golden/pair.s";
   static const int ARRAY_START = 128;
@@ -232,7 +236,7 @@ static bool verifyPair(HaskellFacade & hf)
       std::cerr << "In pair distance\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
-      std::cerr << Color(Color::NONE);
+      std::cerr << SGR::NONE;
       pairPass = false;
     }
   }
@@ -243,6 +247,7 @@ static bool verifyPair(HaskellFacade & hf)
 int main(int argc, char * * argv)
 {
   using namespace utils;
+  using namespace cpp_sgr;
 
   bool pass = false, multPass = false, stringPass = false, pairPass = false;
 
@@ -269,44 +274,44 @@ int main(int argc, char * * argv)
   if(multPass)
   {
     std::cerr << "\nmult: " << FGColor(Color::GREEN) << "OK\n" <<
-      Color(Color::NONE);
+      SGR::NONE;
   }
   else
   {
     pass = false;
     std::cerr << "\nmult: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
-      Color(Color::NONE);
+      SGR::NONE;
   }
 
   if(stringPass)
   {
     std::cerr << "string: " << FGColor(Color::GREEN) << "OK\n" <<
-      Color(Color::NONE);
+      SGR::NONE;
   }
   else
   {
     pass = false;
     std::cerr << "string: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
-      Color(Color::NONE);
+      SGR::NONE;
   }
 
   if(pairPass)
   {
     std::cerr << "pair: " << FGColor(Color::GREEN) << "OK\n" <<
-      Color(Color::NONE);
+      SGR::NONE;
   }
   else
   {
     pass = false;
     std::cerr << "pair: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
-      Color(Color::NONE);
+      SGR::NONE;
   }
 
   if(pass)
   {
     std::cerr << FGColor(Color::GREEN) << "\nAll " << NUM_TESTS <<
-    " tests passed (" << std::setprecision(1) << elapsed_seconds.count() <<
-    "s)\n" << Color(Color::NONE);
+    " tests passed (" << std::setprecision(2) << elapsed_seconds.count() <<
+    "s)\n" << SGR::NONE;
 
     return 0;
   }

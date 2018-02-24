@@ -2,6 +2,7 @@
 #include "ncurses_display.h"
 #include "utils.h"
 #include "cxxopts.hpp"
+#include "sgr.hpp"
 
 #include <getopt.h>
 #include <cstring>
@@ -14,6 +15,7 @@
 int main(int argc, char * * argv)
 {
   using namespace utils;
+  using namespace cpp_sgr;
 
   std::vector<std::string> positional;
   std::string infile;
@@ -54,6 +56,7 @@ interpreter for HTAR9 microarchitecture");
       exit(0);
     }
 
+    // Only one output mode allowed
     if(args.count("output") && args.count("formatted"))
     {
       std::cerr << "Usage error: Cannot request formatted and unformatted\
@@ -61,11 +64,20 @@ interpreter for HTAR9 microarchitecture");
       exit(64);
     }
 
+    // First positional arg is read into infile, so anything in positional
+    // indicates multiple input files
     if(positional.size() > 0)
     {
       std::cerr << FGColor(Color::YELLOW) <<
-      "Warning: Multiple input files specified. Ignoring extras.\n" <<
-      Color(Color::NONE);
+      "Warning:" << SGR::NONE <<
+      " Multiple input files specified. Ignoring extras.\n";
+    }
+    // No input file specified
+    else if(infile.empty())
+    {
+      std::cerr << FGColor(Color::RED) <<
+      "Usage error: " << SGR::NONE << "no input files specified\n";
+      exit(64);
     }
 
     std::cout << "Reading assembly from \"" << infile << "\"\n";
@@ -73,58 +85,69 @@ interpreter for HTAR9 microarchitecture");
     // Read file into a string
     std::string fileContents = FileManager::readFile(infile);
 
-    std::string result;
-    int status = 0;
+    HaskellFacade::AssembleResult assembleResult;
+
+    // Limit scope so HaskellFacade is destroyed as soon as possible
     {
       // Init Haskell handler
       HaskellFacade hf(&argc, argv);
 
-      // Punt to Haskell assembler - result is a C string of binary
-      result = hf.assembleFile(infile.c_str(), fileContents.c_str(),
-        &status);
+      // Punt to Haskell assembler
+      assembleResult = hf.assembleFile(infile.c_str(), fileContents.c_str());
     }
 
-    if(status)
+    // If Haskell flagged an error, report it and terminate
+    if(assembleResult.status)
     {
-      std::cerr << FGColor(Color::RED) << "error:\n" << Color(Color::NONE) <<
-      result << std::endl;
-      exit(status);
+      std::cerr << FGColor(Color::RED) << "error:\n" << SGR::NONE <<
+      assembleResult.str << std::endl;
+      exit(assembleResult.status);
     }
 
     std::cout << "Assembly complete.\n";
 
-    // Output requested
+    // Unformatted output requested
     if(args.count("output"))
     {
-      FileManager::writeCode(outfile, result, false);
+      FileManager::writeCode(outfile, assembleResult.str, false);
     }
+    // Formatted output requested
     else if(args.count("formatted"))
     {
-      FileManager::writeCode(outfile, result, true);
+      FileManager::writeCode(outfile, assembleResult.str, true);
     }
 
+    // Interpreter run requested
     if(args.count("interpret"))
     {
-      std::cout << "Starting interpreter." << std::endl;
+      std::cout << "Starting interpreter.\n";
 
-      CPU::Interpreter inter(CPU::CodeParser()(result));
+      CPU::Interpreter inter(CPU::CodeParser()(assembleResult.str));
 
-      ncurses_tui::NCursesDisplay curses(inter);
-      curses.start();
+      ncurses_tui::NCursesEnvironment ncurses; // start the ncurses environment
+
+      ncurses_tui::NCursesDisplay cursesDisplay(inter);
+      cursesDisplay.start();
     }
 
     return 0;
   }
-  catch(const cxxopts::OptionException& e)
+  catch(const cxxopts::OptionException & e)
   {
-    std::cerr << FGColor(Color::RED) << "Usage error: " << Color(Color::NONE)
+    std::cerr << FGColor(Color::RED) << "Usage error: " << SGR::NONE
     << e.what() << std::endl;
     exit(64);
   }
-  catch(const std::runtime_error & e)
+  catch(const CPU::Interpreter::UnrecognizedInstruction & e)
   {
-    std::cerr << FGColor(Color::RED) << "Error: " << Color(Color::NONE)
+    std::cerr << FGColor(Color::RED) << "Error: " << SGR::NONE
     << e.what() << std::endl;
     exit(1);
+  }
+  catch(const std::runtime_error & e)
+  {
+    std::cerr << FGColor(Color::RED) << "Error: " << SGR::NONE
+    << e.what() << std::endl;
+    exit(-1);
   }
 }
