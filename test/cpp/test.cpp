@@ -85,13 +85,12 @@ static bool verifyMult(HaskellFacade & hf)
 
     if(ans != expected)
     {
-      std::cerr << FGColor(Color::BRIGHT_RED) << "\nFAIL\n" <<
-        FGColor(Color::RED);
+      std::cerr << b_red_fg << "\nFAIL\n" << red_fg;
       std::cerr << "In computation of " << (int)a << " * " << (int)b << " * "
       << (int)c << "\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
-      std::cerr << SGR::NONE;
+      std::cerr << reset;
       multPass = false;
     }
   }
@@ -164,12 +163,11 @@ static bool verifyString(HaskellFacade & hf)
 
     if(ans != expected)
     {
-      std::cerr << FGColor(Color::BRIGHT_RED) << "\nFAIL\n" <<
-        FGColor(Color::RED);
+      std::cerr << b_red_fg << "\nFAIL\n" << red_fg;
       std::cerr << "In string find of pattern " << pattern << "\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
-      std::cerr << SGR::NONE;
+      std::cerr << reset;
       stringPass = false;
     }
   }
@@ -231,12 +229,11 @@ static bool verifyPair(HaskellFacade & hf)
 
     if(ans != expected)
     {
-      std::cerr << FGColor(Color::BRIGHT_RED) << "\nFAIL\n" <<
-        FGColor(Color::RED);
+      std::cerr << b_red_fg << "\nFAIL\n" << red_fg;
       std::cerr << "In pair distance\n";
       std::cerr << "Expected result: " << expected << "\n";
       std::cerr << "Actual result: " << ans << "\n";
-      std::cerr << SGR::NONE;
+      std::cerr << reset;
       pairPass = false;
     }
   }
@@ -263,7 +260,7 @@ int main(int argc, char * * argv)
   }
   catch(std::runtime_error e)
   {
-    std::cerr << FGColor(Color::RED) << "\nError: " << e.what() << std::endl;
+    std::cerr << red_fg << "\nError: " << e.what() << reset << std::endl;
     exit(-1);
   }
 
@@ -273,45 +270,39 @@ int main(int argc, char * * argv)
 
   if(multPass)
   {
-    std::cerr << "\nmult: " << FGColor(Color::GREEN) << "OK\n" <<
-      SGR::NONE;
+    std::cerr << "\nmult: " << green_fg << "OK\n" << reset;
   }
   else
   {
     pass = false;
-    std::cerr << "\nmult: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
-      SGR::NONE;
+    std::cerr << "\nmult: " << b_red_fg << "FAIL\n" << reset;
   }
 
   if(stringPass)
   {
-    std::cerr << "string: " << FGColor(Color::GREEN) << "OK\n" <<
-      SGR::NONE;
+    std::cerr << "string: " << green_fg << "OK\n" << reset;
   }
   else
   {
     pass = false;
-    std::cerr << "string: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
-      SGR::NONE;
+    std::cerr << "string: " << b_red_fg << "FAIL\n" << reset;
   }
 
   if(pairPass)
   {
-    std::cerr << "pair: " << FGColor(Color::GREEN) << "OK\n" <<
-      SGR::NONE;
+    std::cerr << "pair: " << green_fg << "OK\n" << reset;
   }
   else
   {
     pass = false;
-    std::cerr << "pair: " << FGColor(Color::BRIGHT_RED) << "FAIL\n" <<
-      SGR::NONE;
+    std::cerr << "pair: " << b_red_fg << "FAIL\n" << reset;
   }
 
   if(pass)
   {
-    std::cerr << FGColor(Color::GREEN) << "\nAll " << NUM_TESTS <<
+    std::cerr << green_fg << "\nAll " << NUM_TESTS <<
     " tests passed (" << std::setprecision(2) << elapsed_seconds.count() <<
-    "s)\n" << SGR::NONE;
+    "s)\n" << reset;
 
     return 0;
   }

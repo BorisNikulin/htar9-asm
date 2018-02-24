@@ -17,6 +17,8 @@ int main(int argc, char * * argv)
   using namespace utils;
   using namespace cpp_sgr;
 
+  std::cerr << (underline, bold, red_fg, green_bg) << "some text\n" << reset;
+
   std::vector<std::string> positional;
   std::string infile;
   std::string outfile;
@@ -68,15 +70,15 @@ interpreter for HTAR9 microarchitecture");
     // indicates multiple input files
     if(positional.size() > 0)
     {
-      std::cerr << FGColor(Color::YELLOW) <<
-      "Warning:" << SGR::NONE <<
+      std::cerr << yellow_fg <<
+      "Warning:" << reset <<
       " Multiple input files specified. Ignoring extras.\n";
     }
     // No input file specified
     else if(infile.empty())
     {
-      std::cerr << FGColor(Color::RED) <<
-      "Usage error: " << SGR::NONE << "no input files specified\n";
+      std::cerr << red_fg <<
+      "Usage error: " << reset << "no input files specified\n";
       exit(64);
     }
 
@@ -99,7 +101,7 @@ interpreter for HTAR9 microarchitecture");
     // If Haskell flagged an error, report it and terminate
     if(assembleResult.status)
     {
-      std::cerr << FGColor(Color::RED) << "error:\n" << SGR::NONE <<
+      std::cerr << red_fg << "error:\n" << reset <<
       assembleResult.str << std::endl;
       exit(assembleResult.status);
     }
@@ -134,19 +136,19 @@ interpreter for HTAR9 microarchitecture");
   }
   catch(const cxxopts::OptionException & e)
   {
-    std::cerr << FGColor(Color::RED) << "Usage error: " << SGR::NONE
+    std::cerr << red_fg << "Usage error: " << reset
     << e.what() << std::endl;
     exit(64);
   }
   catch(const CPU::Interpreter::UnrecognizedInstruction & e)
   {
-    std::cerr << FGColor(Color::RED) << "Error: " << SGR::NONE
+    std::cerr << red_fg << "Error: " << reset
     << e.what() << std::endl;
     exit(1);
   }
   catch(const std::runtime_error & e)
   {
-    std::cerr << FGColor(Color::RED) << "Error: " << SGR::NONE
+    std::cerr << red_fg << "Error: " << reset
     << e.what() << std::endl;
     exit(-1);
   }
