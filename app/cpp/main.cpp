@@ -17,8 +17,6 @@ int main(int argc, char * * argv)
   using namespace utils;
   using namespace cpp_sgr;
 
-  std::cerr << (underline, bold, red_fg, green_bg) << "some text\n" << reset;
-
   std::vector<std::string> positional;
   std::string infile;
   std::string outfile;
