@@ -2,6 +2,7 @@
 	, FlexibleInstances
 	, MultiParamTypeClasses
 	, GeneralizedNewtypeDeriving
+	, BinaryLiterals
 	#-}
 
 module Test.Control.Monad.HtarCpu
@@ -19,16 +20,31 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
 import Test.SmallCheck.Series
+import qualified Test.Tasty.QuickCheck as QC
+{-import Test.Tasty.QuickCheck hiding (testProperty)-}
 import Data.Word
 import Data.Vector ((//))
 import qualified Data.Vector as V
 import Data.Bits
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Control.Monad
 import Lens.Micro.Platform
 import System.IO
 import Numeric.Natural
 
--- TODO mayeb also a tasty option for this depth?
+newtype Pattern = Pattern Word8
+	deriving(Show, Eq, Ord, Enum, Num, Real, Integral, Bits, FiniteBits)
+
+instance Bounded Pattern where
+	minBound = 0
+	maxBound = 15
+
+newtype SixtyFourWord8s = SixtyFourWord8s [Word8]
+	deriving(Show, Eq, Ord)
+
+
+
+-- TODO maybe also a tasty option for this depth?
 instance Monad m => Serial m Word8 where
 	series = localDepth (*4) $ (fromIntegral :: Natural -> Word8) <$> series
 
@@ -41,6 +57,20 @@ instance Monad m => Serial m Imm where
 
 instance Monad m => Serial m RegImm where
 	series = (mkRegImmFromReg <$> series) \/ (mkRegImmFromImm <$> series)
+
+instance Monad m => Serial m Pattern where
+	series = generate $ \_ -> Pattern <$> [0..15]
+
+instance Monad m => Serial m SixtyFourWord8s where
+	series = SixtyFourWord8s <$> (sequence $ replicate 64 series)
+
+
+instance QC.Arbitrary Pattern where
+	arbitrary = Pattern <$> QC.choose (0, 15)
+
+instance QC.Arbitrary SixtyFourWord8s where
+	arbitrary = SixtyFourWord8s <$> QC.vector 64
+
 
 regs = cpuRegs defState
 ram  = cpuRam  defState
@@ -104,10 +134,10 @@ tests = testGroup "Control.Monad.HtarCpu"
 	, testCase "ba" $
 		let Right s = runHCpuWith defState [Ba $ mkJumpOffset 2, Fin, Mv $ mkReg 7, Fin]
 		in s^.cpuPcL @?= 4
-	, withResource
-		(initResource "./test/golden/mult.s")
-		(hClose . view _1)
-		emulTest
+	, testGroup "Program" $
+		[ withAsmResource "./test/golden/mult.s" multTest
+		, withAsmResource "./test/golden/string.s" stringTest
+		]
 	]
 
 initResource :: FilePath -> IO (Handle, V.Vector Inst)
@@ -119,10 +149,12 @@ initResource fp = do
 		Right insts                = translateLabels t instsWithLabels
 	return (h, V.fromList insts)
 
-emulTest :: IO (Handle, V.Vector Inst) -> TestTree
-emulTest getResource =
-	testGroup "Program"
-	[ testProperty "mult" $ \x y z -> monadic $ do
+withAsmResource :: FilePath -> (IO (Handle, V.Vector Inst) -> TestTree) -> TestTree
+withAsmResource fp test = withResource (initResource fp) (hClose . view _1) test
+
+multTest :: IO (Handle, V.Vector Inst) -> TestTree
+multTest getResource =
+	testProperty "mult" $ \x y z -> monadic $ do
 		(_, insts) <- getResource
 		let
 			Right s = runHCpuWith defHCpuState{cpuRam = cpuRam defHCpuState // [(1, x), (2, y), (3, z)]} insts
@@ -133,4 +165,17 @@ emulTest getResource =
 			resHigh = fromIntegral $ shiftR (resWord .&. high8Mask) 8
 			resLow  = fromIntegral $ resWord .&. low8Mask
 		return $ V.slice 4 2 (cpuRam s) == [resHigh, resLow]
-	]
+
+stringTest :: IO (Handle, V.Vector Inst) -> TestTree
+stringTest getResource =
+	QC.testProperty "string" $ \(Pattern p) (SixtyFourWord8s xs) -> QC.ioProperty $ do
+		(_, insts) <- getResource
+		let
+			Right s = runHCpuWith defHCpuState{
+					cpuRam = cpuRam defHCpuState // ([(6, p)] ++ zip [32..] xs)}
+					insts
+			cpuCount = s^?!cpuRamL.ix 7
+			isMatchInWord8 pat w =
+				 any (==  pat) . fmap (.&. 0b1111) . take 5 $ iterate (`shiftR` 1) w
+			referenceCount = fromIntegral . sum . fmap fromEnum $ fmap (isMatchInWord8 p) xs
+		return $ cpuCount == referenceCount

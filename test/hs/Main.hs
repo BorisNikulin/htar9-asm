@@ -14,21 +14,36 @@ import Test.Control.Monad.HtarCpu
 import Test.Tasty
 import Test.Tasty.Golden
 import qualified Data.ByteString.Lazy as BL
+import System.FilePath (takeBaseName, replaceExtension)
 
-main = defaultMain topLevelTests
+main = do
+	gTests <- goldenTests
+	let theTests = topLevelTests ++ [gTests]
+	defaultMain $ testGroup "Tests" theTests
 
-topLevelTests = testGroup "Tests"
+topLevelTests =
 	[ Test.Text.AsmParser.tests
 	, Test.Text.AsmBinParser.tests
 	, Test.Text.AsmTranslator.tests
 	, Test.Control.Monad.Cpu.tests
 	, Test.Control.Monad.HtarCpu.tests
-	, testGroup "Golden"
-		[ goldenVsString "mult" "./test/golden/mult" $ do
-			file <- readFile "./test/golden/mult.s"
-			let
-				Right (insts, t) = parseAsm "mult.s" file
-				Right bin        = translateAsms t insts
-			return $ BL.concat bin
-		]
 	]
+
+goldenTests :: IO TestTree
+goldenTests = do
+	asmFiles <- findByExtension [".s"] "./test/golden"
+	return $  testGroup "Assembler"
+		[ goldenVsString
+			(takeBaseName asmFile) -- test name
+			binFile -- golden file path
+			(asmToBin <$> readFile asmFile) -- action whose result is tested
+		| asmFile <- asmFiles
+		, let binFile = replaceExtension asmFile ""
+		]
+
+asmToBin :: FilePath -> BL.ByteString
+asmToBin f = BL.concat bin
+	where
+		Right (insts, t) = parseAsm "mult.s" f
+		Right bin        = translateAsms t insts
+

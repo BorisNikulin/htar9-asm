@@ -29,6 +29,7 @@ drawUI s =
 handleEvent :: AppState -> BrickEvent UIName UIEvent -> EventM UIName (Next AppState)
 handleEvent s (VtyEvent (Vty.EvKey (Vty.KChar 'q') [])) = halt s
 handleEvent s (VtyEvent (Vty.EvKey (Vty.KChar 's') [])) = continue $ stepAppState s
+handleEvent s (VtyEvent (Vty.EvKey (Vty.KChar 'i') [])) = continue $ s & cpuStateL.cpuFlagsL.ix 1 .~ False
 handleEvent s (VtyEvent e) = continue =<< handleEventLensed s instListL (handleListEventVi handleListEvent) e
 handleEvent s _ = continue s
 
@@ -37,7 +38,9 @@ stepAppState s = s & cpuStateL .~ cpu & instListL %~ listMoveTo (cpu^.cpuPcL.to 
 	where
 		cpu = case s^?instListL.listElementsL.ix (s^.cpuStateL.cpuPcL.to fromIntegral) of
 			Just (_, inst) -> case stepHCpuWith (s^.cpuStateL) inst of
-				Right nextCpuState -> nextCpuState
+				Right nextCpuState -> if (s^?!cpuStateL.cpuFlagsL.ix 1)
+					then s^.cpuStateL
+					else nextCpuState
 				-- pop and error message or /shrug
 				Left  e            -> s^.cpuStateL
 			Nothing  -> s^.cpuStateL

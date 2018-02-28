@@ -41,19 +41,20 @@ dependencies:
 default-extensions:
     - OverloadedStrings
 
-ghc-options:
-    - -fno-warn-tabs
-
 cc-options:
     - -std=c++14
     - -Wall
 
 library:
-    source-dirs: src/hs
+    source-dirs:
+        - src/hs
     c-sources:
         - src/cpp/*.cpp
     include-dirs:
         - src/cpp/include
+    ghc-options:
+        - -fno-warn-tabs
+        - -pgmlg++ #makes GHCi work and idk why (force linking with c++ not c)
 
 executables:
     htar9-asm-exe:
@@ -89,6 +90,7 @@ executables:
             - -Wincomplete-uni-patterns
             - -Wredundant-constraints
             - -fno-warn-tabs
+            #- -pgmlg++ #makes GHCi work and idk why (force linking with c++ not c) (doesnt work here (why???))
         dependencies:
             - htar9-asm
 
@@ -101,10 +103,12 @@ tests:
             - -rtsopts
             - -with-rtsopts=-N
             - -fno-warn-tabs
+            #- -pgmlg++ #makes GHCi work and idk why (force linking with c++ not c) (doesnt work here (why???))
         dependencies:
             - tasty
             - tasty-hunit
             - tasty-smallcheck
+            - tasty-quickcheck
             - tasty-golden
             - smallcheck
             - htar9-asm

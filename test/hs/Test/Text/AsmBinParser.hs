@@ -21,6 +21,9 @@ tests = testGroup "Text.AsmBinParser"
 	, testCase "fin" $
 		let Right [inst] = parseAsm "" "000111000"
 		in inst @?= Fin
+	, testCase "reset" $
+		let Right [inst] = parseAsm "" "000111001"
+		in inst @?= Reset
 	, testCase "add imm" $
 		let Right [inst] = parseAsm "" "001000000"
 		in inst @?= (Add $ mkImmediate 0)

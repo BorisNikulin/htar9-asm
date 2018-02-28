@@ -25,7 +25,7 @@ renderRegs = renderVector regLabels
 		regLabels = V.map (\x -> "r" <> x <> " = ") . V.map show $ V.enumFromN 0 7
 
 renderFlags :: V.Vector Bool -> Widget UIName
-renderFlags = renderVector flagLabels
+renderFlags = renderVectorWith (show . fromEnum) flagLabels
 	where
 		flagLabels = V.fromList
 			[ "condition = "

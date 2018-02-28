@@ -98,7 +98,7 @@ pattern RegImmR r <- Register  (Reg r)
 type Ident = String
 
 -- | Specifies to a jump to relative offset or to a label.
-data Jump = JumpOffset !Int
+data Jump = JumpOffset Int
 		  | JumpLabel SourcePos Ident -- ^ 'SourcePos' for error messages
 	deriving (Show, Eq)
 
