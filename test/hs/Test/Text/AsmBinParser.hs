@@ -18,6 +18,12 @@ tests = testGroup "Text.AsmBinParser"
 	, testCase "ld" $
 		let Right [inst] = parseAsm "" "000011111"
 		in inst @?= (Ld $ mkReg 0)
+	, testCase "dist" $
+		let Right [inst] = parseAsm "" "000100111"
+		in inst @?= (Dist $ mkReg 0)
+	, testCase "min" $
+		let Right [inst] = parseAsm "" "000101111"
+		in inst @?= (Min $ mkReg 0)
 	, testCase "fin" $
 		let Right [inst] = parseAsm "" "000111000"
 		in inst @?= Fin

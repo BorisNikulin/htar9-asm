@@ -42,22 +42,26 @@ readJump s = do
 pBin :: Parser Inst
 pBin = do
 	inst <- takeP (Just "instruction") 9
-	let (high, top6) = splitAt 3 inst
-	let (mid, low) = splitAt 3 top6
-	let bot6 = mid ++ low
+
+	let
+		(high, top6) = splitAt 3 inst
+		(mid, low) = splitAt 3 top6
+		bot6 = mid ++ low
 
 	let maybeInst = case high of
-		"001" -> Add <$> readRegImm bot6
-		"010" -> Sub <$> readRegImm bot6
-		"011" -> And <$> readRegImm bot6
+		"001" -> Add   <$> readRegImm bot6
+		"010" -> Sub   <$> readRegImm bot6
+		"011" -> And   <$> readRegImm bot6
 		"100" -> Lshft <$> readRegImm bot6
 		"101" -> Rshft <$> readRegImm bot6
-		"110" -> Bcs <$> readJump bot6
-		"111" -> Ba  <$> readJump bot6
+		"110" -> Bcs   <$> readJump   bot6
+		"111" -> Ba    <$> readJump   bot6
 		"000" -> case mid of
-			"000" -> Mv  <$> readReg low
-			"010" -> Str <$> readReg low
-			"011" -> Ld  <$> readReg low
+			"000" -> Mv   <$> readReg low
+			"010" -> Str  <$> readReg low
+			"011" -> Ld   <$> readReg low
+			"100" -> Dist <$> readReg low
+			"101" -> Min  <$> readReg low
 			"111" -> case low of
 				"000" -> Just Fin
 				"001" -> Just Reset
@@ -73,4 +77,4 @@ pBins :: Parser [Inst]
 pBins = many pBin <* eof
 
 parseAsm :: String -> String -> Either (ParseError Char Void) [Inst]
-parseAsm n i = runParser pBins n i
+parseAsm = runParser pBins

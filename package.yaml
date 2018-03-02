@@ -8,6 +8,8 @@ copyright:           "2018 Boris Nikulin"
 
 extra-source-files:
     - src/cpp/include/**/*
+    - app/cpp/include/**/*
+    - test/cpp/include/**/*
     - README.md
     - LICENSE
 
@@ -35,7 +37,7 @@ dependencies:
     - filepath >= 1 && < 2
     - microlens-platform < 1
     - vector < 1
-    - primitive < 1
+    - deepseq >= 1 && < 2
     - void
 
 default-extensions:
@@ -62,6 +64,8 @@ executables:
         source-dirs:         app/cpp
         c-sources:
             - app/cpp/*.cpp
+        include-dirs:
+            - app/cpp/include
 
         ghc-options:
             - -threaded
@@ -114,12 +118,27 @@ tests:
             - htar9-asm
 
     htar9-asm-test:
-        main:                test.cpp
+        main:                main.cpp
         source-dirs:         test/cpp
+        c-sources:           test/cpp/*.cpp
+        include-dirs:        test/cpp/include
         ghc-options:
             - -threaded
             - -fno-warn-tabs
         extra-libraries:
             - stdc++
         dependencies:
+            - htar9-asm
+
+benchmarks:
+    htar9-asm-hs-bench:
+        main:                Main.hs
+        source-dirs:         bench/hs
+        ghc-options:
+            - -threaded
+            - -rtsopts
+            - -with-rtsopts=-N
+            - -fno-warn-tabs
+        dependencies:
+            - criterion
             - htar9-asm

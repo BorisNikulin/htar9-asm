@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving
+	, DeriveGeneric
 	, PatternSynonyms
 	, BangPatterns
 #-}
@@ -36,9 +37,12 @@ import Data.String
 import Data.Semigroup
 import Text.Megaparsec.Pos (SourcePos)
 
+import Control.DeepSeq
+import GHC.Generics (Generic)
+
 -- | Register specified by a number between 0 and 7 with register a being the same as register 0.
 newtype Reg = Reg Word8
-	deriving (Show, Eq, Ord, Num, Real, Integral, Enum)
+	deriving (Show, Eq, Ord, Num, Real, Integral, Enum, NFData)
 
 instance Bounded Reg where
 	minBound = 0
@@ -55,7 +59,7 @@ pattern R :: Word8 -> Reg
 pattern R r <- Reg r
 
 newtype Imm = Imm Word8
-	deriving (Show, Eq, Ord, Num, Real, Integral, Enum)
+	deriving (Show, Eq, Ord, Num, Real, Integral, Enum, NFData)
 
 instance Bounded Imm where
 	minBound = 0
@@ -74,7 +78,9 @@ pattern I x <- Imm x
 -- | Regiser or immediate used by many instructions.
 data RegImm = Immediate Imm    -- ^ unsigned immediate
 			| Register  Reg
-	deriving (Show, Eq)
+	deriving (Show, Eq, Generic)
+
+instance NFData RegImm
 
 mkImmediate :: Integral a => a -> RegImm
 mkImmediate = Immediate . mkImm
@@ -100,7 +106,9 @@ type Ident = String
 -- | Specifies to a jump to relative offset or to a label.
 data Jump = JumpOffset Int
 		  | JumpLabel SourcePos Ident -- ^ 'SourcePos' for error messages
-	deriving (Show, Eq)
+	deriving (Show, Eq, Generic)
+
+instance NFData Jump
 
 mkJumpOffset :: Integral a => a -> Jump
 mkJumpOffset xIntegral
@@ -122,6 +130,8 @@ pattern JLabel sp l <- JumpLabel sp l
 data Inst = Mv Reg
 		  | Str Reg
 		  | Ld Reg
+		  | Dist Reg
+		  | Min Reg
 		  | Fin
 		  | Reset
 		  | Add RegImm
@@ -131,7 +141,9 @@ data Inst = Mv Reg
 		  | Rshft RegImm
 		  | Bcs Jump
 		  | Ba Jump
-	deriving (Show, Eq)
+	deriving (Show, Eq, Generic)
+
+instance NFData Inst
 
 regPretty :: IsString a => Reg -> a
 regPretty (R r) = fromString $ "r" <> show r

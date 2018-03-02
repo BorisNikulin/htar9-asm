@@ -7,6 +7,7 @@
 	, TypeFamilies
 	, FlexibleInstances
 	, UndecidableInstances
+	, DeriveGeneric
 	#-}
 
 module Control.Monad.Cpu
@@ -36,7 +37,9 @@ import Control.Monad.State
 import Control.Monad.RWS
 import Control.Monad.Except
 import Control.Monad.Cont
+import Control.DeepSeq
 import Brick.Types (suffixLenses)
+import GHC.Generics (Generic)
 
 data CpuEnv w s = CpuEnv
 	{ _regs  :: MV.MVector s w
@@ -53,9 +56,11 @@ data CpuState w = CpuState
 	, cpuFlags :: V.Vector Bool
 	, cpuRam   :: V.Vector w
 	, cpuPc    :: Word
-	} deriving (Show, Eq)
+	} deriving (Show, Eq, Generic)
 
 suffixLenses ''CpuState
+
+instance NFData w => NFData (CpuState w)
 
 -- | 'Cpu' monad with registers, flags, ram, and a program counter.
 -- 'Cpu' is designed with emulating simple instruction sets and thus is more like

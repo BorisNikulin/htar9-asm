@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving
+	, DeriveGeneric
 	, FlexibleContexts
 	, PatternSynonyms
 	#-}
@@ -17,19 +18,24 @@ module Control.Monad.HtarCpu
 import Data.Asm
 import Control.Monad.Cpu
 
-import Prelude hiding (and)
+import Prelude hiding (and, min)
+import qualified Prelude as Prelude (min)
 import Data.Word
 import Data.Bits
 import qualified Data.Vector as V
 import Control.Monad.Except
 import Control.Monad.Reader
+import Control.DeepSeq
+import GHC.Generics (Generic)
 
 -- | Error type for invalid instructions like jumping to a label
 -- which the native htar cpu does not understand.
 data HCpuError =
 	  InvalidJumpToLabelError (CpuState Word8)
 	| InvalidStartingCpuState (CpuState Word8)
-	deriving (Show)
+	deriving (Show, Generic)
+
+instance NFData HCpuError
 
 -- | HTAR9 Cpu monad type.
 newtype HCpu s a = HCpu { unHCpu :: ExceptT HCpuError (ReaderT (V.Vector Inst) (Cpu Word8 s)) a }
@@ -97,6 +103,23 @@ ld (R r) = do
 	modifyPc (+1)
 ld _ = error "invalid args"
 
+dist :: MonadCpu Word8 m => Reg -> m ()
+dist (R r) = do
+	x <- getReg 0
+	y <- getReg (fromIntegral r)
+	let absDistInt = abs (fromIntegral x - fromIntegral y) :: Int
+	setReg 0 (fromIntegral absDistInt)
+	modifyPc (+1)
+dist _ = error "invalid args"
+
+min :: MonadCpu Word8 m => Reg -> m ()
+min (R r) = do
+	x <- getReg 0
+	y <- getReg (fromIntegral r)
+	setReg 0 (Prelude.min x y)
+	modifyPc (+1)
+min _ = error "invalid args"
+
 -- | Applies the binary opertor on the contents of ra and
 -- the contents of the passed in register in that order.
 binOp :: MonadCpu Word8 m => (Word8 -> Word8 -> Word8) -> RegImm -> m ()
@@ -131,11 +154,11 @@ and :: MonadCpu Word8 m => RegImm -> m ()
 and y = binOp (.&.) y >> setConditionIfRegA (== 0)
 
 lshft :: MonadCpu Word8 m => RegImm -> m ()
-lshft a = binOp (\x y -> unsafeShiftL x (fromIntegral y)) a
+lshft a = binOp (\x y -> shiftL x (fromIntegral y)) a
 	>> setConditionIfRegA (/= 0)
 
 rshft :: MonadCpu Word8 m => RegImm -> m ()
-rshft a = binOp (\x y -> unsafeShiftR x (fromIntegral y)) a
+rshft a = binOp (\x y -> shiftR x (fromIntegral y)) a
 	>> setConditionIfRegA (/= 0)
 
 branchIf :: MonadCpu Word8 m => Bool -> Int -> m ()
@@ -178,12 +201,14 @@ eval = do
 stepInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => Inst -> m ()
 stepInst Fin   = setFlag 1 True >> modifyPc (+1)
 stepInst Reset = setPc 0
-stepInst (Mv  r) = mv r
-stepInst (Str r) = str r
-stepInst (Ld  r) = ld r
-stepInst (Add o) = add o
-stepInst (Sub o) = sub o
-stepInst (And o) = and o
+stepInst (Mv   r) = mv r
+stepInst (Str  r) = str r
+stepInst (Ld   r) = ld r
+stepInst (Dist r) = dist r
+stepInst (Min  r) = min r
+stepInst (Add  o) = add o
+stepInst (Sub  o) = sub o
+stepInst (And  o) = and o
 stepInst (Lshft o) = lshft o
 stepInst (Rshft o) = rshft o
 stepInst (Bcs j@(JOffset _))  = bcs j

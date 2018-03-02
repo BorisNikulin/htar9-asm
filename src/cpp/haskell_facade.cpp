@@ -27,18 +27,18 @@ HaskellFacade::~HaskellFacade()
  *
  * @param  fname     filename (for error reporting)
  * @param  fcontents file contents
- * @return           Pointer to C string of machine code
+ * @return           Struct containing string result and status flag
  */
 
-std::string HaskellFacade::assembleFile(const char * fname, const char *
-  fcontents, int * status)
+HaskellFacade::AssembleResult HaskellFacade::assembleFile(const char * fname,
+  const char * fcontents)
 {
-  AsmResult * resStruct = (AsmResult *)cAssemble((void *)fname, (void *)fcontents);
-  *status = resStruct->status;
+  FFIResult * ffiStruct = (FFIResult *)cAssemble((void *)fname,
+    (void *)fcontents);
 
-  std::string code = std::string(resStruct->str);
+  AssembleResult res{ ffiStruct->status, std::string(ffiStruct->str) };
 
-  delete resStruct;
+  delete ffiStruct;
 
-  return code;
+  return res;
 }

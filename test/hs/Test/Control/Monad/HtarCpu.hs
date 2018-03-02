@@ -23,6 +23,7 @@ import Test.SmallCheck.Series
 import qualified Test.Tasty.QuickCheck as QC
 {-import Test.Tasty.QuickCheck hiding (testProperty)-}
 import Data.Word
+import Data.List
 import Data.Vector ((//))
 import qualified Data.Vector as V
 import Data.Bits
@@ -40,6 +41,9 @@ instance Bounded Pattern where
 	maxBound = 15
 
 newtype SixtyFourWord8s = SixtyFourWord8s [Word8]
+	deriving(Show, Eq, Ord)
+
+newtype TwentyWord8s = TwentyWord8s [Word8]
 	deriving(Show, Eq, Ord)
 
 
@@ -71,12 +75,15 @@ instance QC.Arbitrary Pattern where
 instance QC.Arbitrary SixtyFourWord8s where
 	arbitrary = SixtyFourWord8s <$> QC.vector 64
 
+instance QC.Arbitrary TwentyWord8s where
+	arbitrary = TwentyWord8s <$> QC.vector 20
 
-regs = cpuRegs defState
-ram  = cpuRam  defState
 
 defState :: CpuState Word8
 defState = CpuState [255,1,34,64,100,56,240,0] (V.replicate 2 False) (V.replicate 256 0 // [(0,77), (1, 240)]) 0
+
+defStateWithRa :: Word8 -> CpuState Word8
+defStateWithRa w = set (cpuRegsL.ix 0) w defState
 
 tests = testGroup "Control.Monad.HtarCpu"
 	[ testCase "mv" $
@@ -91,6 +98,19 @@ tests = testGroup "Control.Monad.HtarCpu"
 	, testCase "ld" $
 		let Right s = runHCpuWith defState [Ld $ mkReg 7, Fin]
 		in s^?!cpuRegsL.ix 0 @?= 77
+	, testProperty "dist" $
+		\w (R r) ->
+			let
+				defState' = defStateWithRa w
+				Right s = runHCpuWith defState' [Dist $ mkReg r, Fin]
+				dist =  abs $
+					(fromIntegral w)
+					- (defState'^?!cpuRegsL.ix (fromIntegral r).to fromIntegral) :: Int
+			in s^?!cpuRegsL.ix 0 == fromIntegral dist
+	, testProperty "min" $
+		\w (R r) ->
+			let Right s = runHCpuWith (defStateWithRa w) [Min $ mkReg r, Fin]
+			in s^?!cpuRegsL.ix 0 == min w (defState^?!cpuRegsL.ix (fromIntegral r))
 	, testCase "fin" $
 		let Right s = runHCpuWith defState [Fin]
 		in s^.cpuPcL @?= 1
@@ -98,31 +118,47 @@ tests = testGroup "Control.Monad.HtarCpu"
 		let Right s = runHCpuWith defState [Bcs $ mkJumpOffset 2, Ba $ mkJumpOffset 2, Fin, And $ mkImmediate 0 ,Reset]
 		in s^.cpuPcL @?= 3
 	, testProperty "add" $
-		\(I x) ->
-			let Right s = runHCpuWith defState [Mv $ mkReg 0, Ld $ mkReg 1, Add $ mkImmediate x, Fin]
+		\o ->
+			let
+				(operand, x) = case o of
+					RegImmR r -> (mkRegister r, (defStateWithRa 240)^?!cpuRegsL.ix (fromIntegral r))
+					RegImmI v -> (mkImmediate v, v)
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Ld $ mkReg 1, Add operand, Fin]
 			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (240 + x, x <= 255 - 240)
 	, testProperty "sub" $
-		\(I x) ->
+		\o ->
 			let
-				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Sub $ mkImmediate x, Fin]
+				(operand, x) = case o of
+					RegImmR r -> (mkRegister r, (defStateWithRa 34)^?!cpuRegsL.ix (fromIntegral r))
+					RegImmI v -> (mkImmediate v, v)
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Sub operand, Fin]
 				res     = 34 - x
 			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res /= 0)
 	, testProperty "and" $
-		\(I x) ->
+		\o ->
 			let
-				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, And $ mkImmediate x, Fin]
+				(operand, x) = case o of
+					RegImmR r -> (mkRegister r, (defStateWithRa 34)^?!cpuRegsL.ix (fromIntegral r))
+					RegImmI v -> (mkImmediate v, v)
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, And operand, Fin]
 				res     = 34 .&. x
 			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res == 0)
 	, testProperty "lshft" $
-		\(I x) ->
+		\o  ->
 			let
-				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 49, Lshft $ mkImmediate x, Fin]
+				(operand, x) = case o of
+					RegImmR r -> (mkRegister r, (defStateWithRa 49)^?!cpuRegsL.ix (fromIntegral r))
+					RegImmI v -> (mkImmediate v, v)
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 49, Lshft operand, Fin]
 				res     = shiftL 49 (fromIntegral x)
 			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res /= 0)
 	, testProperty "rshft" $
-		\(I x) ->
+		\o ->
 			let
-				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Rshft $ mkImmediate x, Fin]
+				(operand, x) = case o of
+					RegImmR r -> (mkRegister r, (defStateWithRa 34)^?!cpuRegsL.ix (fromIntegral r))
+					RegImmI v -> (mkImmediate v, v)
+				Right s = runHCpuWith defState [Mv $ mkReg 0, Add $ mkImmediate 34, Rshft operand, Fin]
 				res     = shiftR 34 (fromIntegral x)
 			in (s^?!cpuRegsL.ix 0, s^?!cpuFlagsL.ix 0) == (res, res /= 0)
 	, testCase "bcs true" $
@@ -135,8 +171,9 @@ tests = testGroup "Control.Monad.HtarCpu"
 		let Right s = runHCpuWith defState [Ba $ mkJumpOffset 2, Fin, Mv $ mkReg 7, Fin]
 		in s^.cpuPcL @?= 4
 	, testGroup "Program" $
-		[ withAsmResource "./test/golden/mult.s" multTest
+		[ withAsmResource "./test/golden/mult.s"   multTest
 		, withAsmResource "./test/golden/string.s" stringTest
+		, withAsmResource "./test/golden/pair.s"   pairTest
 		]
 	]
 
@@ -145,7 +182,7 @@ initResource fp = do
 	h <- openFile fp ReadMode
 	file <- hGetContents h
 	let
-		Right (instsWithLabels, t) = parseAsm "mult.s" file
+		Right (instsWithLabels, t) = parseAsm fp file
 		Right insts                = translateLabels t instsWithLabels
 	return (h, V.fromList insts)
 
@@ -179,3 +216,16 @@ stringTest getResource =
 				 any (==  pat) . fmap (.&. 0b1111) . take 5 $ iterate (`shiftR` 1) w
 			referenceCount = fromIntegral . sum . fmap fromEnum $ fmap (isMatchInWord8 p) xs
 		return $ cpuCount == referenceCount
+
+pairTest :: IO (Handle, V.Vector Inst) -> TestTree
+pairTest getResource =
+	QC.testProperty "pair" $ \(TwentyWord8s xs) -> QC.ioProperty $ do
+		(_, insts) <- getResource
+		let
+			Right s = runHCpuWith defHCpuState{
+				cpuRam = cpuRam defHCpuState // zip [128..] xs}
+				insts
+			cpuMinDist = s^?!cpuRamL.ix 127
+			referenceMinDist = minimum . fmap abs $
+				fmap (uncurry (-)) [(fromIntegral x, fromIntegral y) | (x:ys) <- tails xs, y <- ys] :: Int
+		return $ cpuMinDist == fromIntegral referenceMinDist

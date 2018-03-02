@@ -1,10 +1,5 @@
-image: fpco/stack-build:lts-10.3
-
 variables:
     STACK_ROOT: "${CI_PROJECT_DIR}/.stack"
-
-before_script:
-    - stack setup --system-ghc
 
 stages:
     - test_build
@@ -12,21 +7,46 @@ stages:
     - deploy
 
 test:
+    image: fpco/stack-build:lts-10.3
     stage: test_build
     script:
-        # coverage report goes in .stack-work which is cached
-        # so no need to artifact it for pages job
-        - stack test --system-ghc --coverage --test-arguments "--color always"
+        - stack setup --system-ghc
+        - stack test --system-ghc --coverage --test-arguments "--color always --quickcheck-tests 1000"
+        - mkdir -p ./public/coverage
+        - cp -r $(stack path --system-ghc --local-hpc-root)/* ./public/coverage
     coverage: '/(\d+)\% expressions used/'
     cache:
         key: test
         paths:
             - .stack
             - .stack-work
+    artifacts:
+        paths:
+            - public
+        expire_in: 1 hour
 
-build-cpp:
+bench:
+    image: fpco/stack-build:lts-10.3
     stage: test_build
     script:
+        - stack setup --system-ghc
+        - mkdir -p ./public/benchmark
+        - stack bench --system-ghc --benchmark-arguments "-o ./public/benchmark/index.html"
+    cache:
+        key: bench
+        paths:
+            - .stack
+            - .stack-work
+    artifacts:
+        paths:
+            - public
+        expire_in: 1 hour
+
+build-cpp:
+    image: fpco/stack-build:lts-10.3
+    stage: test_build
+    script:
+        - stack setup --system-ghc
         - mkdir build
         - stack install htar9-asm:htar9-asm-exe --system-ghc --local-bin-path build
     cache:
@@ -37,11 +57,12 @@ build-cpp:
     artifacts:
         paths:
             - build/
-        expire_in: 1 week
 
 build-hs:
+    image: fpco/stack-build:lts-10.3
     stage: test_build
     script:
+        - stack setup --system-ghc
         - mkdir build
         - stack install htar9-asm:htar9-asm-hs-exe --system-ghc --local-bin-path build
     cache:
@@ -52,26 +73,19 @@ build-hs:
     artifacts:
         paths:
             - build/
-        expire_in: 1 week
 
 pages:
+    # stage precedence means previous stage artifacts will be downloaded
     stage: deploy
     script:
+        echo "some script to run to appease gitlab CI"
         # TODO: get haddock working on haddocking my code not all but my code
         #- stack haddock htar9-asm --haddock-arguments "--odir=${CI_PROJECT_DIR}/public/docs"
         #- stack ide targets --system-ghc
         #- echo ${CI_COMMIT_REF_SLUG}
-        - mkdir -p ./public/coverage
-        - cp -r $(stack path --system-ghc --local-hpc-root)/* ./public/coverage
     only:
         refs:
             - master
-    cache:
-        key: test
-        policy: pull
-        paths:
-            - .stack
-            - .stack-work
     artifacts:
         paths:
             - public/

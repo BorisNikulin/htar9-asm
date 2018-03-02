@@ -71,27 +71,4 @@ namespace utils {
 
     std::cout << "Write complete." << std::endl;
   }
-
-  const std::string Color::escape = "\033[";
-
-  Color::Color(ANSIColor code, const bool background) :
-  code(escape + std::to_string(background ? code + 10 : code) + "m")
-  {
-  }
-
-  Color::Color(const int r, const int g, const int b, const bool background) :
-  code(escape + (background ? "48" : "38") + ";2;" +
-  std::to_string(r) + ";" + std::to_string(g) + ";" + std::to_string(b) + "m")
-  {
-    if(!(verifyColorComponent(r) && verifyColorComponent(g) &&
-      verifyColorComponent(b)))
-    {
-        throw std::runtime_error("Specified color code was invalid.");
-    }
-  }
-
-  bool Color::verifyColorComponent(const int c) noexcept
-  {
-    return c <= 255 && c >= 0;
-  }
 }

@@ -32,6 +32,12 @@ tests = testGroup "Text.AsmTranslator"
 	, testCase "ld" $
 		let Right s = translateAsm t . i . Ld $ mkReg 0
 		in s @?= "000011111"
+	, testCase "dist" $
+		let Right s = translateAsm t . i . Dist $ mkReg 0
+		in s @?= "000100111"
+	, testCase "min" $
+		let Right s = translateAsm t . i . Min $ mkReg 0
+		in s @?= "000101111"
 	, testCase "fin" $
 		let Right s = translateAsm t . i $ Fin
 		in s @?= "000111000"

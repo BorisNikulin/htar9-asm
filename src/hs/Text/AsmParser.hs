@@ -84,23 +84,27 @@ pJump = pJumpOffset <|> (mkJumpLabel <$> getPosition <*> pIdent) <?> "label or s
 
 pInst :: Parser Inst
 pInst = do
-	inst <- asum [pMv, pStr, pLd, pFin, pReset, pAdd, pSub, pAnd, pLshft, pRshft, pBcs, pBa] <?> "assembly instruction"
+	inst <- asum
+		-- yes *> can be used instead of >> but different precedence so you also need parens so no
+		[ ts "mv"    >> Mv    <$> pReg
+		, ts "str"   >> Str   <$> pReg
+		, ts "ld"    >> Ld    <$> pReg
+		, ts "dist"  >> Dist  <$> pReg
+		, ts "min"   >> Min   <$> pReg
+		, ts "fin"   >> return Fin
+		, ts "reset" >> return Reset
+		, ts "add"   >> Add   <$> pRegImm
+		, ts "sub"   >> Sub   <$> pRegImm
+		, ts "and"   >> And   <$> pRegImm
+		, ts "lshft" >> Lshft <$> pRegImm
+		, ts "rshft" >> Rshft <$> pRegImm
+		, ts "bcs"   >> Bcs   <$> pJump
+		, ts "ba"    >> Ba    <$> pJump
+		] <?> "assembly instruction"
 	pc += 1
 	return inst
-	where
-		ts = try . symbol
-		pMv  = ts "mv"  >> Mv  <$> pReg
-		pStr = ts "str" >> Str <$> pReg
-		pLd  = ts "ld"  >> Ld  <$> pReg
-		pFin = ts "fin" >> return Fin
-		pReset = ts "reset" >> return Reset
-		pAdd = ts "add" >> Add <$> pRegImm
-		pSub = ts "sub" >> Sub <$> pRegImm
-		pAnd = ts "and" >> And <$> pRegImm
-		pLshft = ts "lshft" >> Lshft <$> pRegImm
-		pRshft = ts "rshft" >> Rshft <$> pRegImm
-		pBcs = ts "bcs" >> Bcs <$> pJump
-		pBa  = ts "ba"  >> Ba  <$> pJump
+		where
+			ts = try . symbol
 
 pInstLabel :: Parser Inst
 pInstLabel = ((try pLabel) *> pInst)

@@ -20,6 +20,12 @@ tests = testGroup "Text.AsmParser"
 	, testCase "ld" $
 		let Right ([inst], _) = parseAsm "" "ld r0"
 		in inst @?= (Ld $ mkReg 0)
+	, testCase "dist" $
+		let Right ([inst], _) = parseAsm "" "dist r0"
+		in inst @?= (Dist $ mkReg 0)
+	, testCase "min" $
+		let Right ([inst], _) = parseAsm "" "min r0"
+		in inst @?= (Min $ mkReg 0)
 	, testCase "fin" $
 		let Right ([inst], _) = parseAsm "" "fin"
 		in inst @?= Fin
