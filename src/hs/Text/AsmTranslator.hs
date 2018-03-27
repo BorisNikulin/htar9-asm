@@ -24,8 +24,7 @@ import Data.ByteString.Builder
 import Text.Megaparsec.Pos (SourcePos, sourcePosPretty)
 
 -- | @'LabelError'@ represents a missing label or
--- the jump to a label is too far away
--- as jumps can only branch to a bounded relative offset.
+-- the relaeive offset is too large.
 data LabelError
 	= MissingLabelError SourcePos Ident
 	| OffsetError SourcePos Ident Int
@@ -97,8 +96,8 @@ tlb = toLazyByteString
 -- translate to 9 chars of @\'1\'@s and @\'0\'@s in little endian.
 -- The function is intended to be used with 'Data.AsmParser.parseAsm'.
 translateAsm
-	:: SymbolTable  -- ^ map from String labels to intruction number
-	-> (Word, Inst) -- ^ a tuple of intruction number and the corresponding instruction
+	:: SymbolTable  -- ^ Map from String labels to intruction number.
+	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction.
 	-> Either LabelError BL.ByteString
 translateAsm t (i, (Bcs j@(JLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Bcs
 translateAsm t (i, (Ba  j@(JLabel _ _))) = calcRelativeOffset t j i >>= translateAsm t . (,) i . Ba
@@ -121,28 +120,27 @@ translateAsm _ (_, inst) = Right . tlb $ translateAsm' inst
 
 -- | Same as 'translateAsm' but for lists of 'Inst'.
 translateAsms
-	:: SymbolTable -- ^ map from String labels to intruction number
-	-> [Inst]      -- ^ list of instructions in the same order as was parsed into the table
+	:: SymbolTable -- ^ Map from String labels to intruction number.
+	-> [Inst]      -- ^ List of instructions in the same order as was parsed into the table.
 	-> Either LabelError [BL.ByteString]
 -- make Traversable t instead of a list? (t (Word, Int))
 translateAsms t asm = sequence $ translateAsm t <$> zip [0..] asm
 
--- | If the instruction contain a jump to a label it is replaced with the equivalent offset
--- or returns the labeless instructions as is.
+-- | If the instruction contains a jump to a label it is replaced with the equivalent offset
+-- if valid or a 'LabelError' otherwise.
+-- All other instructions return as is.
 translateLabel
-	:: SymbolTable  -- ^ map from String labels to intruction number
-	-> (Word, Inst) -- ^ a tuple of intruction number and the corresponding instruction
+	:: SymbolTable  -- ^ Map from String labels to intruction number.
+	-> (Word, Inst) -- ^ A tuple of intruction number and the corresponding instruction.
 	-> Either LabelError Inst
 translateLabel t (i, (Bcs j@(JLabel _ _))) = calcRelativeOffset t j i >>= Right . Bcs
 translateLabel t (i, (Ba  j@(JLabel _ _))) = calcRelativeOffset t j i >>= Right . Ba
 translateLabel _ (_, inst)                 = Right inst
 
 
--- | Strips labels from instructions and replaces with their offset form suitable for emulation.
--- Leaves labeless instructions as is.
--- Same as 'translateLabel' but for lists of 'Inst'.
+-- | Same as 'translateLabel' but for lists of 'Inst'.
 translateLabels
-	:: SymbolTable -- ^ map from String labels to intruction number
-	-> [Inst]      -- ^ list of instructions in the same order as was parsed into the table
+	:: SymbolTable -- ^ Map from String labels to intruction number.
+	-> [Inst]      -- ^ List of instructions in the same order as was parsed into the table.
 	-> Either LabelError [Inst]
 translateLabels t asm = sequence $ translateLabel t <$> zip [0..] asm

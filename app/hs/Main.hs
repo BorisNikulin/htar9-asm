@@ -1,4 +1,7 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards
+	, MultiWayIf
+#-}
+
 
 module Main
 	( main
@@ -16,6 +19,7 @@ import Data.Semigroup
 import Data.Maybe
 import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy as BL
+import Control.Monad
 import Text.Megaparsec.Error (parseErrorPretty)
 
 main :: IO ()
@@ -23,8 +27,7 @@ main = do
 	opts <- parseArgs
 	withFile (optInputFile opts) ReadMode
 		(runFile opts)
-		`catchIOError` fileErrorhandler
-
+	`catchIOError` fileErrorhandler
 
 fileErrorhandler :: IOError -> IO ()
 fileErrorhandler e
@@ -45,25 +48,25 @@ runFile :: Options -> Handle -> IO ()
 runFile opts h = do
 	input <- hGetContents h
 	case parseAsm (optInputFile opts) input of
-		Left pe          -> hPutStrLn stderr $ parseErrorPretty pe
-		Right (insts, t) ->
-			case opts of
-				AssembleOptions{optOutputFile = outFilePath, optFormatted = isFormatted} ->
+		Left pe          -> hPutStr stderr $ parseErrorPretty pe
+		Right (insts, t) -> do
+			case optOutputOpts opts of
+				Nothing                                   -> return ()
+				Just (OutputOptions doFormat outFilePath) ->
 					case translateAsms t insts of
-						Left te          -> hPutStrLn stderr $ labelErrorPretty te
-						-- might want to catch device full errors but meh
-						Right outputList -> BL.writeFile outFilePath output
-							where
-								output = if isFormatted
-									then BL.intercalate "\n" outputList <> "\n"
-									else BL.concat outputList
-				InterpretOptions{} ->
-					case translateLabels t insts of
-						Left te             -> hPutStrLn stderr $ labelErrorPretty te
-						Right strippedInsts -> runUI strippedInsts >> return ()
-				RunOptions{} ->
-					case translateLabels t insts of
-						Left te             -> hPutStrLn stderr $ labelErrorPretty te
-						Right strippedInsts -> case runHCpu (V.fromList strippedInsts) of
+							Left te          -> hPutStrLn stderr $ labelErrorPretty te
+							Right outputList -> BL.writeFile outFilePath output
+								where
+									output = if doFormat
+										then BL.intercalate "\n" outputList <> "\n"
+										else BL.concat outputList
+			case translateLabels t insts of
+				Left te
+					| isJust $ optOutputOpts opts -> return () -- translation error already reported
+					| otherwise                   -> hPutStrLn stderr $ labelErrorPretty te
+				Right strippedInsts -> do
+					when (optInterpret opts) $ runUI strippedInsts >> return ()
+					when (optRun opts) $
+						case runHCpu (V.fromList strippedInsts) of
 							Left re -> hPutStrLn stderr $ show re -- TODO pretty print error
-							Right s -> putStrLn $ show s -- TODO pretty print CpuState
+							Right s -> putStrLn $ show s          -- TODO pretty print CpuState

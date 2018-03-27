@@ -1,5 +1,6 @@
 module Foreign.CAssembler
-	(cAssemble) where
+	( cAssemble
+	) where
 
 import Data.Void
 import Text.AsmTranslator
@@ -31,24 +32,28 @@ instance Storable AsmResultStruct where
 
 foreign export ccall cAssemble :: CString -> CString -> IO AsmResult
 
--- | A version of 'Assembler.AsmTranslator.translateAsms' for use in C or C++
+-- | A combination of 'parseAsm' and 'translateAsms' for use in C or C++.
+cAssemble
+	:: CString -- ^ Name of source file.
+	-> CString -- ^ Input to parse.
+	-> IO (Ptr AsmResultStruct)
 cAssemble n i = do
 	ptr <- malloc
 	poke ptr $ case parseAsm (cMarshallCString n) (cMarshallCString i) of
-		Left perr -> AsmResultStruct 1 (cExtractParseError perr)
-		Right (a,b) -> case translateAsms b a of
-			Left aerr -> AsmResultStruct 1 (cExtractLabelError aerr)
+		Left pe          -> AsmResultStruct 1 (cExtractParseError pe)
+		Right (insts, t) -> case translateAsms t insts of
+			Left te   -> AsmResultStruct 1 (cExtractLabelError te)
 			Right res -> AsmResultStruct 0 (cExtractCodeList res)
 	return ptr
 
 cMarshallCString :: CString -> String
-cMarshallCString s = unsafePerformIO (peekCString s)
+cMarshallCString = unsafePerformIO . peekCString
 
 cExtractParseError :: ParseError Char Void -> CString
-cExtractParseError e = unsafePerformIO (newCString (parseErrorPretty e))
+cExtractParseError = unsafePerformIO . newCString . parseErrorPretty
 
 cExtractLabelError :: LabelError -> CString
-cExtractLabelError e = unsafePerformIO (newCString (labelErrorPretty e))
+cExtractLabelError = unsafePerformIO . newCString . labelErrorPretty
 
 cExtractCodeList :: [BL.ByteString] -> CString
-cExtractCodeList l = unsafePerformIO (newCString (BL.unpack (BL.concat l)))
+cExtractCodeList = unsafePerformIO . newCString . BL.unpack . BL.concat

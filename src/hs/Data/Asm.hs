@@ -5,7 +5,18 @@
 #-}
 
 module Data.Asm
-	( Reg
+	( -- * Data types
+	  -- | Data types are exported without constructors
+	  -- except for the top level 'Inst'.
+	  -- To create them use the smart constructors.
+	  -- NB: Creating invalid HTAR9 instructions
+	  -- result in errors being thrown with the exception of
+	  -- jumps by relative offset going too far.
+	  -- For pattern matching, appropriate unidirectional
+	  -- pattern synonyms are provided.
+	  -- NB: To use the pattern synonyms, -XPatternSynonyms
+	  -- is required.
+	  Reg
 	, mkReg
 	, pattern R
 	, Imm
@@ -34,7 +45,7 @@ module Data.Asm
 
 import Data.Word
 import Data.String
-import Data.Semigroup
+import Data.Semigroup hiding (Min)
 import Text.Megaparsec.Pos (SourcePos)
 
 import Control.DeepSeq
@@ -58,6 +69,7 @@ mkReg rIntegral
 pattern R :: Word8 -> Reg
 pattern R r <- Reg r
 
+-- | Unsigned Immediate between 0-55 inclusive.
 newtype Imm = Imm Word8
 	deriving (Show, Eq, Ord, Num, Real, Integral, Enum, NFData)
 
@@ -105,7 +117,7 @@ type Ident = String
 
 -- | Specifies to a jump to relative offset or to a label.
 data Jump = JumpOffset Int
-		  | JumpLabel SourcePos Ident -- ^ 'SourcePos' for error messages
+		  | JumpLabel SourcePos Ident -- ^ 'SourcePos' for error messages.
 	deriving (Show, Eq, Generic)
 
 instance NFData Jump
@@ -117,6 +129,7 @@ mkJumpOffset xIntegral
 		where
 			x = fromIntegral xIntegral
 
+-- | 'SourcePos' is from megaparsec and is used for error reporting.
 mkJumpLabel :: SourcePos -> Ident -> Jump
 mkJumpLabel sp l = JumpLabel sp l
 
@@ -156,16 +169,18 @@ jumpPretty :: IsString a => Jump -> a
 jumpPretty (JOffset  x) = fromString $ show x
 jumpPretty (JLabel _ l) = fromString $ show l
 
-instPretty :: IsString a => Inst -> a
-instPretty (Mv  r)   = fromString $ "mov   " <> regPretty r
-instPretty (Str r)   = fromString $ "str   " <> regPretty r
-instPretty (Ld  r)   = fromString $ "ld    " <> regPretty r
-instPretty Fin       = fromString $ "fin"
-instPretty Reset     = fromString $ "reset"
-instPretty (Add o)   = fromString $ "add   " <> regImmPretty o
-instPretty (Sub o)   = fromString $ "sub   " <> regImmPretty o
-instPretty (And o)   = fromString $ "and   " <> regImmPretty o
-instPretty (Lshft o) = fromString $ "lshft " <> regImmPretty o
-instPretty (Rshft o) = fromString $ "rshft " <> regImmPretty o
-instPretty (Bcs j)   = fromString $ "bcs   " <> jumpPretty j
-instPretty (Ba  j)   = fromString $ "ba    " <> jumpPretty j
+instPretty :: (IsString a, Semigroup a) => Inst -> a
+instPretty (Mv   r)  = "mov   " <> regPretty r
+instPretty (Str  r)  = "str   " <> regPretty r
+instPretty (Ld   r)  = "ld    " <> regPretty r
+instPretty (Dist r)  = "dist  " <> regPretty r
+instPretty (Min  r)  = "min   " <> regPretty r
+instPretty Fin       = "fin"
+instPretty Reset     = "reset"
+instPretty (Add o)   = "add   " <> regImmPretty o
+instPretty (Sub o)   = "sub   " <> regImmPretty o
+instPretty (And o)   = "and   " <> regImmPretty o
+instPretty (Lshft o) = "lshft " <> regImmPretty o
+instPretty (Rshft o) = "rshft " <> regImmPretty o
+instPretty (Bcs j)   = "bcs   " <> jumpPretty j
+instPretty (Ba  j)   = "ba    " <> jumpPretty j

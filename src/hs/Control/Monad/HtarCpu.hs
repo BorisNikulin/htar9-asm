@@ -29,7 +29,7 @@ import Control.DeepSeq
 import GHC.Generics (Generic)
 
 -- | Error type for invalid instructions like jumping to a label
--- which the native htar cpu does not understand.
+-- which the native HTAR9 cpu does not understand.
 data HCpuError =
 	  InvalidJumpToLabelError (CpuState Word8)
 	| InvalidStartingCpuState (CpuState Word8)
@@ -42,6 +42,7 @@ newtype HCpu s a = HCpu { unHCpu :: ExceptT HCpuError (ReaderT (V.Vector Inst) (
 	deriving (Functor, Applicative, Monad,
 		MonadCpu Word8, MonadReader (V.Vector Inst), MonadError HCpuError)
 
+-- | Default HTAR9 cpu state that contains all 0's.
 defHCpuState :: CpuState Word8
 defHCpuState = CpuState
 	{ cpuRegs  = V.replicate 8 0
@@ -50,8 +51,8 @@ defHCpuState = CpuState
 	, cpuPc    = 0
 	}
 
--- | Like 'runHCpu' but allows bootstrapping starting CpuState. NB: HTAR9 cpu's
--- expects 8 registers, a single conditional flag, and 256 ram entries.
+-- | Like 'runHCpu' but allows bootstrapping starting 'CpuState'. NB: HTAR9 cpu's
+-- expects at least 8 registers, 2 flags, and 256 ram entries.
 runHCpuWith :: CpuState Word8 -> V.Vector Inst -> Either HCpuError (CpuState Word8)
 runHCpuWith s v
 	| V.length (cpuRegs s) >= 8
@@ -68,6 +69,7 @@ runHCpuWith s v
 runHCpu :: V.Vector Inst -> Either HCpuError (CpuState Word8)
 runHCpu = runHCpuWith defHCpuState
 
+-- | Runs a single HTAR9 instruction and returns resulting 'CpuState'.
 stepHCpuWith :: CpuState Word8 -> Inst -> Either HCpuError (CpuState Word8)
 stepHCpuWith s i
 	| V.length (cpuRegs s) >= 8
@@ -187,6 +189,7 @@ setConditionIfRegA p = do
 		then setFlag 0 True
 		else setFlag 0 False
 
+-- | Recursively evaluates 'HCpu' computation to completion with the help of 'stepInst'.
 eval :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => m ()
 eval = do
 	isDone <- getFlag 1
@@ -198,6 +201,8 @@ eval = do
 			let inst = insts V.! (fromIntegral pc)
 			stepInst inst >> eval
 
+-- | Evaluates an 'Inst'. NB: jumps do not jump, but only modify the pc. 'eval' is responsible
+-- for fetching instructions based on pc.
 stepInst :: (MonadCpu Word8 m, MonadReader (V.Vector Inst) m, MonadError HCpuError m) => Inst -> m ()
 stepInst Fin   = setFlag 1 True >> modifyPc (+1)
 stepInst Reset = setPc 0

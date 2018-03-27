@@ -125,8 +125,8 @@ pAsm = sc *> (concat <$> sepEndBy (some pInstLabel) (some $ symbol ";")) <* eof
 -- | Parses input string according to HTAR9 spec while being a bit loose
 -- but unambiguously or against spec.
 parseAsm
-	:: String -- ^ Name of source file
-	-> String -- ^ Input to parse
+	:: String -- ^ Name of source file.
+	-> String -- ^ Input to parse.
 	-> Either (ParseError Char Void) ([Inst], SymbolTable)
 parseAsm n i = case runParser (runStateT pAsm def) n i of
 	Right (asm, (SymbolState t _)) -> Right (asm, t)

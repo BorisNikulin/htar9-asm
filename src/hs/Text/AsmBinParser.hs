@@ -1,4 +1,6 @@
-module Text.AsmBinParser where
+module Text.AsmBinParser
+	( parseAsm
+	) where
 
 import Data.Asm
 
@@ -45,8 +47,8 @@ pBin = do
 
 	let
 		(high, top6) = splitAt 3 inst
-		(mid, low) = splitAt 3 top6
-		bot6 = mid ++ low
+		(mid,  low)  = splitAt 3 top6
+		bot6         = mid ++ low
 
 	let maybeInst = case high of
 		"001" -> Add   <$> readRegImm bot6
@@ -70,11 +72,15 @@ pBin = do
 		_     -> Nothing
 
 	case maybeInst of
-		Just a -> return a
+		Just a  -> return a
 		Nothing -> fail "invalid HTAR9 operand or instruction"
 
 pBins :: Parser [Inst]
 pBins = many pBin <* eof
 
-parseAsm :: String -> String -> Either (ParseError Char Void) [Inst]
+-- | Parses a stream of ascii @1@'s and @0@'s into the HTAR9 instruction type 'Inst'.
+parseAsm
+	:: String -- ^ Name of source file.
+	-> String -- ^ Input to parse.
+	-> Either (ParseError Char Void) [Inst]
 parseAsm = runParser pBins
