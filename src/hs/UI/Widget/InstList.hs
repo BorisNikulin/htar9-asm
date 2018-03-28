@@ -30,13 +30,14 @@ render s = renderList
 				| num < 10 = n + 1
 
 renderInst
-	:: Int  -- ^ max width to use for padding instruction numbers
-	-> Word -- ^ current pc to draw current instruction with special attribute
+	:: Int  -- ^ Max width to use for padding instruction numbers.
+	-> Word -- ^ Current pc.
 	-> Bool
-	-> (Word, Inst)
+	-> Line
 	-> Widget UIName
-renderInst width pc focused (i, inst) =  applyAttr . str $
-	printf ("%" <> show width <> "d") i
+renderInst width pc focused (Line isBreakPoint i inst) =  applyAttr . str
+	$  breakPointString isBreakPoint
+	<> printf ("%" <> show width <> "d") i
 	<> " │ "
 	<> instPretty inst
 		where
@@ -45,3 +46,5 @@ renderInst width pc focused (i, inst) =  applyAttr . str $
 				| focused            -> withAttr curLineAttr
 				| pc == i            -> withAttr curInstAttr
 				| otherwise          -> id
+			breakPointString True  = "b "
+			breakPointString False = "  "

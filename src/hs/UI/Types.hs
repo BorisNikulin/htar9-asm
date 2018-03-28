@@ -19,11 +19,19 @@ data UIName = InstListName | CpuStateName
 
 type UIEvent = ()
 
+data Line = Line
+	{ isBreakPoint :: Bool
+	, lineNum      :: Word
+	, inst         :: Inst
+	} deriving (Show)
+
+suffixLenses ''Line
+
 -- i could probably make AppState paramteried by name and event type
 data AppState = AppState
-	{ instList :: List UIName (Word, Inst)
+	{ instList :: List UIName Line
 	, cpuState :: CpuState Word8
-	}
+	} deriving (Show)
 
 suffixLenses ''AppState
 
@@ -33,10 +41,11 @@ curInstAttr        = "curInstAttr"
 curInstAndLineAttr = "curInstAndLineAttr"
 
 initAppState :: [Inst] -> AppState
-initAppState instList = AppState (list InstListName (V.zip (V.enumFromN 0 n) insts) 1) defHCpuState
+initAppState instList = AppState (list InstListName lines 1) defHCpuState
 	where
 		insts = V.fromList instList
 		n     = V.length insts
+		lines = V.map (uncurry $ Line False) $ V.zip (V.enumFromN 0 n) insts
 
 curLineColor, curInstColor :: Vty.Color
 curLineColor = Vty.rgbColor 10 10 10
