@@ -76,6 +76,7 @@ build-hs:
 
 build-isa-pdf:
     image: aergus/latex
+    stage: test_build
     script:
         - cd docs
         - latexmk -lualatex -interaction=nonstopmode isa.tex
