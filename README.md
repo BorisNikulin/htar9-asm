@@ -11,6 +11,10 @@ Download the latest htar9-asm-exe
 Download the latest htar9-asm-hs-exe
 [here](https://gitlab.com/BorisNikulin/htar9-asm/-/jobs/artifacts/master/raw/build/htar9-asm-hs-exe?job=build-hs).
 
+## Documentation
+The ISA specification can be found
+[here](https://borisnikulin.gitlab.io/htar9-asm/isa.pdf).
+
 ## Reports
 Test coverage report can be found by clicking on coverage badge or
 [here](https://borisnikulin.gitlab.io/htar9-asm/coverage).
