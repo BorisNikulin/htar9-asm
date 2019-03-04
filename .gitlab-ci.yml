@@ -22,7 +22,7 @@ test:
             - .stack-work
     artifacts:
         paths:
-            - public
+            - public/
         expire_in: 1 hour
 
 bench:
@@ -39,7 +39,7 @@ bench:
             - .stack-work
     artifacts:
         paths:
-            - public
+            - public/
         expire_in: 1 hour
 
 build-cpp:
@@ -73,6 +73,19 @@ build-hs:
     artifacts:
         paths:
             - build/
+
+build-isa-pdf:
+    image: aergus/latex
+    script:
+        - cd docs
+        - latexmk -lualatex -interaction=nonstopmode isa.tex
+        - cd ..
+        - mkdir public
+        - mv ./docs/isa.pdf ./public
+    artifacts:
+        paths:
+            - public/
+        expire_in: 1 hour
 
 pages:
     # stage precedence means previous stage artifacts will be downloaded
