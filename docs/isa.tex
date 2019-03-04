@@ -1,0 +1,222 @@
+\documentclass{article}
+
+\usepackage[detect-all]{siunitx}
+\usepackage[littleEndian,numberFieldsOnce,numberBitsAbove]{bitpattern}
+\usepackage{sidecap}
+\usepackage{xcolor}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{tabu}
+\usepackage{microtype}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+
+\sisetup{range-phrase = \text{--}}
+
+\bpStartAtBit{9}
+
+\definecolor{blue}{RGB}{42,0.0,255}
+\definecolor{green}{RGB}{63,127,95}
+\definecolor{red}{RGB}{255,0,0}
+
+\lstdefinelanguage{HTAR9}
+{
+    morekeywords={
+        mv,
+        str,
+        ld,
+        fin,
+        ret,
+        add,
+        sub,
+        and,
+        lshft,
+        rshft,
+        bcs,
+        ba
+    },
+    sensitive=true,
+    morecomment=[l]{//},
+    morestring=[b]"
+}
+
+\lstset{
+    language={HTAR9},
+    basicstyle=\small\ttfamily,
+    captionpos=b,
+    extendedchars=true,
+    tabsize=4,
+    columns=fixed,
+    keepspaces=true,
+    showstringspaces=false,
+    breaklines=true,
+    frame=trbl,
+    numbers=left,
+    numberstyle=\tiny\ttfamily,
+    commentstyle=\color{green},
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+}
+
+\title{Specification for New Instruction Set Architecture}
+\date{\today}
+\author{Matthew Hatch, Desmond Toor}
+
+\begin{document}
+    \pagenumbering{roman}
+    \maketitle
+    \tableofcontents
+
+    \newpage
+    \pagenumbering{arabic}
+
+    \section{Introduction}
+
+    \paragraph{Designation}
+    This specification describes the HTAR9 (Hatch-Toor Accumulator RISC 9-bit)
+    architecture.
+
+    \paragraph{Philosophy}
+    The guiding philosophy of this architecture is that the machine code should
+    be simple to write, simple to understand, and thus fully utilizes the
+    limited 9 bits of the instructions.
+
+    \paragraph{Realization}
+    Based on this, we designed an ISA where each instruction is concise,
+    requiring only one operand. This was accomplished by making the architecture
+    in accumulator style. Although this limits the flexibility of each
+    instruction, increasing program length, it also makes the assembly code much
+    simpler to read and understand, reducing the chance of incorrect code.
+
+    \paragraph{}
+    Additionally, all memory access is done solely through the load and store
+    instructions, making it trivial to implement an indirect memory access scheme
+    and allowing access to the full 256 bytes of main memory.
+
+    \section{Technical Specifications}
+
+    \subsection{Instruction Formats}
+
+    Because of the simplicity of the architecture, all instructions have either
+    no operands or a single operand. Four instruction groups exist: \\
+    {\tabulinesep=1.2mm
+    \begin{tabu}{ | l | p{3cm} | l | l | }
+        \hline
+        Instruction Type & Operand & Format & Example \\ \hline
+        simple & none & {\centering \bitpattern{opcode}[9]{}[0]/ \par} & fin \\ \hline
+        register-only & register $rs$ & {\centering \bitpattern{opcode}[6]{rs}[3]{}[0]/} & mv r3 \\ \hline
+        register or immediate & $rs$ or unsigned immediate & {\centering \bitpattern{op}[3]{imm/rs}[6]{}[0]/} & add r2 \\ \hline
+        branch & label or signed immediate & {\centering \bitpattern{op}[3]{imm (sgnd)}[6]{}[0]/} & bch 5 \\
+        \hline
+    \end{tabu}}
+
+    \subsubsection{Operand Representations}
+
+    All operands are represented in little-endian ordering.
+
+    \paragraph{Register-only}
+    These operands are represented as a 3-bit identifier, where the identifier
+    is the register's number's complement with respect to 7, e.g. r1's
+    identifier is 6, that is, $110_2$.
+
+    \paragraph{Register or Unsigned Immediate}
+    These operands are represented as a 6-bit unsigned integer. Values
+    \numrange{0}{55} are valid immediates. Values \numrange{56}{63} are used to
+    signify registers, and thus are reserved and disallowed as
+    immediates. The low 3 bits of these reserved values correspond to the
+    identifiers in the above section.
+
+    \paragraph{Signed Immediate}
+    These operands are represented as a 6-bit two's complement integer. Values
+    \numrange{-32}{31} are thus representable.
+
+    \subsection{Operations}
+
+    {\tabulinesep=1.2mm
+    \begin{tabu}{ | l | l | p{4cm} | p{2.45cm} | }
+        \hline
+        insn & Format & Description & Condition Register \\ \hline
+        mv & {\centering \bitpattern{000}[3]{000}[3]{rs}[3]{}[0]/} & moves the contents of $ra$ into $rs$; sets $ra$ to 0 & no effect \\ \hline
+        str & {\centering \bitpattern{000}[3]{010}[3]{rs}[3]{}[0]/} & stores the value of $ra$ in the memory address pointed to by $rs$ &
+        no effect \\ \hline
+        ld & {\centering \bitpattern{000}[3]{011}[3]{rs}[3]{}[0]/} & loads the value in the memory address pointed to by $rs$ into $ra$ &
+        no effect \\ \hline
+        dist & {\centering \bitpattern{000}[3]{100}[3]{rs}[3]{}[0]/} & (signed) computes the absolute difference between $rs$ and $ra$ & no effect \\ \hline
+        min & {\centering \bitpattern{000}[3]{101}[3]{rs}[3]{}[0]/} & computes the minimum of $rs$ and $ra$ & no effect \\ \hline
+        fin & {\centering \bitpattern{000}[3]{111}[3]{000}[3]{}[0]/} & sets the done pin high to signal program completion & no effect \\ \hline
+        reset & {\centering \bitpattern{000}[3]{111}[3]{001}[3]{}[0]/} & resets the program counter to 0 & no effect \\ \hline
+        add & {\centering \bitpattern{001}[3]{imm/rs}[6]{}[0]/} & adds the contents of $rs$ or $imm$ to $ra$ & NOT carry-out \\ \hline
+        sub & {\centering \bitpattern{010}[3]{imm/rs}[6]{}[0]/} & subtracts the contents of $rs$ or $imm$ from $ra$ & $result \neq 0$ \\ \hline
+        and & {\centering \bitpattern{011}[3]{imm/rs}[6]{}[0]/} & evaluates bitwise AND between $rs$ or $imm$ and $ra$ & $result = 0$ \\ \hline
+        lshft & {\centering \bitpattern{100}[3]{imm/rs}[6]{}[0]/} & shifts $ra$ left by $imm$ number of bits & $result \neq 0$ \\ \hline
+        rshft & {\centering \bitpattern{101}[3]{imm/rs}[6]{}[0]/} & shifts $ra$ right by $imm$ number of bits & $result \neq 0$ \\ \hline
+        bcs & {\centering \bitpattern{110}[3]{imm (sgnd)}[6]{}[0]/} & branch to label or by offset if condition register is set & no effect \\ \hline
+        ba & {\centering \bitpattern{111}[3]{imm (sgnd)}[6]{}[0]/} & branch to label or by offset always & no effect \\
+        \hline
+    \end{tabu}}
+
+    \subsubsection{Memory Addressing}
+
+    All non-memory instructions use direct register addressing. The load and
+    store instructions use indirect memory addressing, where the register
+    operand contains the address of the memory to access. E.g. ld $r2$ treats
+    the value in $r2$ as an 8-bit pointer, and loads the value in memory at the
+    specified address into $ra$.
+
+    \subsection{Internal Operands}
+
+    \paragraph{Main Registers}
+    The architecture supports 8 unsigned 8-bit registers, labelled
+    $r\numrange{0}{7}$. $r0$ is aliased as $ra$, and is designated as the
+    accumulator register. As noted in each opcode's description, this
+    register is the only register in which arithmetic and logical operations
+    are performed.
+
+    \paragraph{Condition Register}
+    An additional 1-bit condition register is set internally by all arithmetic
+    and logical instructions as noted in their descriptions. The state of this
+    register is used to determine whether branch instructions are followed or
+    not.
+
+    \subsection{Control Flow}
+
+    \paragraph{Branches}
+    The architecture has two instructions for implementing branches, the
+    instructions $bch$ and $ba$. $bch$ is a conditional branch contingent on the
+    state of the internal condition register; if it is set, the branch is taken,
+    otherwise the instruction is ignored. $ba$ is an unconditional branch. Both
+    branches take an offset or a label as the operand. The offset to labels is
+    computed by the assembler; in hardware all branches are implemented as
+    relative jumps. The maximum jump distance is 32 (backwards) or 31
+    (forwards).
+
+    \section{Examples}
+
+    \subsection{Basic Example}
+
+    An example of an instruction in this architecture and its machine
+    translation is:
+    \vspace{2.5mm}
+    \newline
+    sub r6 : 010111001
+
+    \subsection{Advanced Examples}
+
+    \subsubsection{Multiplication Problem}
+
+    \lstinputlisting{../assembly/mult.s}
+
+    \subsubsection{String Match Problem}
+
+    \lstinputlisting{../assembly/string.s}
+
+    \subsubsection{Closest Pair Problem}
+
+    \lstinputlisting{../assembly/pair.s}
+
+\end{document}
